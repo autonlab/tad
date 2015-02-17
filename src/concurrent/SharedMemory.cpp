@@ -68,6 +68,6 @@ namespace al { namespace concurrent
 
     int SharedMemory::get_size( void ) const
     {
-        return space ? space->get_size() : NULL;
+        return space ? space->get_size() : 0;
     }
 } }

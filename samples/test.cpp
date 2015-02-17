@@ -1,5 +1,9 @@
 #include "srl.hpp"
 #include "srl/Message.hpp"
+#include "srl/Connection.hpp"
+#include "srl/CommunicationInterface.hpp"
+#include "srl/Controller.hpp"
+#include "srl/BuiltinMessageFactory.hpp"
 
 #include "concurrent/Time.hpp"
 
@@ -34,17 +38,19 @@ int main( void )
     controller.add_connection(callback_interface.connect(service_connection));
 
     // Connect a new service.
-    srl::RegisterServiceMessage services;
-    services.set_services({"serviceA", "serviceB", "serviceC"});
-    service_connection.send(services.encode());
+    service_connection.send(srl::RegisterServiceMessageFactory::generate(
+                "MyService", std::vector<string>({"serviceA", "serviceB", "serviceC"})));
+    service_connection.send(srl::RegisterServiceMessageFactory::generate(
+                "MyService", std::vector<string>({"serviceB", "serviceD"})));
 
     // Wait for message to be handled.
-    while (service_connection.is_connected()) concurrent::msleep(1);
+    cout << "Waiting for controller to finish.." << endl;
+    controller.join();
 
     // Stop the controller.
-    cout << "Stopping controller..." << endl;
-    controller.stop();
-    controller.join();
+    //cout << "Stopping controller..." << endl;
+    //controller.stop();
+    //controller.join();
 
     // Done.
     cout << "Done." << endl;
