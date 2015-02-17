@@ -8,7 +8,7 @@
 
 #include "Time.hpp"
 
-namespace Concurrent
+namespace al { namespace concurrent
 {
     /*!
      * This class is useful for timing an event. The use is simple: reset before
@@ -52,11 +52,11 @@ namespace Concurrent
              * @return The time elapsed in nanoseconds.
              */
             inline long get_elapsed_time( void ) const { return elapsed_nsec; }
-        
+
         private:
             long last_time_nsec;
             long elapsed_nsec;
     };
-}
+} }
 
 #endif

@@ -8,7 +8,7 @@
 #include <boost/interprocess/shared_memory_object.hpp>
 #include <boost/interprocess/mapped_region.hpp>
 
-namespace Concurrent
+namespace al { namespace concurrent
 {
     using namespace boost::interprocess;
 
@@ -70,4 +70,4 @@ namespace Concurrent
     {
         return space ? space->get_size() : NULL;
     }
-}
+} }

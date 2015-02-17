@@ -11,7 +11,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x")
 
 # Build options.
 option(BUILD_SHARED     "Build as a shared library."            ON)
-option(BUILD_SAMPLES    "Build the C++ sample applications."    OFF)
+option(BUILD_SAMPLES    "Build the C++ sample applications."    ON)
 option(INSTALL_SAMPLES  "Install the sample application"        ON)
 
 if (UNIX)
@@ -29,6 +29,7 @@ else(WIN32)
 endif()
 
 # Library target.
+include_directories(thirdparty/rapidjson/include)
 include_directories(include)
 file(GLOB_RECURSE LIB_SRCS src/*.cpp)
 if (BUILD_SHARED)
@@ -36,6 +37,7 @@ if (BUILD_SHARED)
 else()
     add_library(${PROJECT_NAME} STATIC ${LIB_SRCS})
 endif()
+target_link_libraries(${PROJECT_NAME} jsoncpp pthread rt)
 install(TARGETS ${PROJECT_NAME} DESTINATION ${LIB_INSTALL_PATH})
 install(DIRECTORY include/ DESTINATION ${HEADER_INSTALL_PATH})
 

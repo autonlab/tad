@@ -7,11 +7,12 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <dirent.h>
+#include <unistd.h>
 #include <string>
 #include <fstream>
 #include <errno.h>
 
-namespace Concurrent
+namespace al { namespace concurrent
 {
     namespace __utils
     {
@@ -168,4 +169,4 @@ namespace Concurrent
         int result = ::remove(filename.c_str());
         return (result == 0) || (errno == ENOENT);
     }
-}
+} }

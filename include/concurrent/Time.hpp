@@ -6,7 +6,7 @@
 #ifndef __TIME_HPP__
 #define __TIME_HPP__
 
-namespace Concurrent
+namespace al { namespace concurrent
 {
     /*!
      * Sleep to a specific clock time.
@@ -29,7 +29,7 @@ namespace Concurrent
      * @param nano_seconds The duration (in nanoseconds) to sleep.
      */
     void nsleep( const long nano_seconds );
-    
+
     /*!
      * The following routines call nsleep but allow you to enter a duration in
      * microseconds (usleep()), milliseconds (msleep()), or seconds (ssleep()).
@@ -61,6 +61,6 @@ namespace Concurrent
     inline long utime( void ) { return ntime()/1000; }
     inline long mtime( void ) { return ntime()/1000/1000; }
     inline long stime( void ) { return ntime()/1000/1000/1000; }
-}
+} }
 
 #endif

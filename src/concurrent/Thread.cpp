@@ -6,7 +6,7 @@
 #include "concurrent/Thread.hpp"
 #include <pthread.h>
 
-namespace Concurrent
+namespace al { namespace concurrent
 {
     int Thread::start( void )
     {
@@ -21,7 +21,7 @@ namespace Concurrent
             result = pthread_create(
                     reinterpret_cast<pthread_t *>(thread),
                     &attributes,
-                    &Concurrent::Thread::run_loop_helper,
+                    &concurrent::Thread::run_loop_helper,
                     reinterpret_cast<void *>(this));
             pthread_attr_destroy(&attributes);
         }
@@ -63,4 +63,4 @@ namespace Concurrent
         pthread_exit(result);
         return result; // Shouldn't get here.
     }
-}
+} }

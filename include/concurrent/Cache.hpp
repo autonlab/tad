@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-namespace Concurrent
+namespace al { namespace concurrent
 {
     /*!
      * This is a generic key/value cache interface.
@@ -138,6 +138,6 @@ namespace Concurrent
         private:
             std::string directory;
     };
-}
+} }
 
 #endif

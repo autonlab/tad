@@ -7,7 +7,7 @@
 
 #include <time.h>
 
-namespace Concurrent
+namespace al { namespace concurrent
 {
     void nsleep_to( const long nano_time )
     {
@@ -31,5 +31,4 @@ namespace Concurrent
         clock_gettime(CLOCK_MONOTONIC, &time);
         return time.tv_sec*1000000000 + time.tv_nsec;
     }
-}
-
+} }

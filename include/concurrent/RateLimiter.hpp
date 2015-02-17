@@ -8,7 +8,7 @@
 
 #include "Time.hpp"
 
-namespace Concurrent
+namespace al { namespace concurrent
 {
     /*!
      * This class makes it easy to perform an operation at a specific rate. After
@@ -38,7 +38,7 @@ namespace Concurrent
                 : period_nsec(us_period*1000), deadline_nsec(0),
                     missed_deadlines(0)
             { }
-            
+
             /*!
              * Reset the object. This just sets the last update time to the
              * current time.
@@ -81,6 +81,6 @@ namespace Concurrent
             long deadline_nsec;
             int missed_deadlines;
     };
-}
+} }
 
 #endif

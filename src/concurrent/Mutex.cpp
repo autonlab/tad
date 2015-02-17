@@ -7,7 +7,7 @@
 
 #include <pthread.h>
 
-namespace Concurrent
+namespace al { namespace concurrent
 {
     Mutex::Mutex( void * const shared_address )
         : shared_address(shared_address), mutex(0)
@@ -57,4 +57,4 @@ namespace Concurrent
     {
         return pthread_mutex_unlock(reinterpret_cast<pthread_mutex_t *>(mutex));
     }
-}
+} }

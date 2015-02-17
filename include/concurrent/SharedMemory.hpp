@@ -8,7 +8,7 @@
 
 #include <string>
 
-namespace Concurrent
+namespace al { namespace concurrent
 {
     /*!
      * This is a shared memory space object. It's useful for defining spaces of
@@ -44,6 +44,6 @@ namespace Concurrent
         private:
             class SharedMemorySpace *space;
     };
-}
+} }
 
 #endif
