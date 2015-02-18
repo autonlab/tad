@@ -21,9 +21,6 @@ namespace al { namespace srl
             bool is_array( void ) const { return value->isArray(); }
             bool is_object( void ) const { return value->isObject(); }
 
-            template <class T>
-            Field & operator=( const T new_value ) { value = new_value; return *this; }
-            /*
             Field & operator=( const long value )
                 { *this->value = static_cast<Json::Int64>(value); return *this; }
             Field & operator=( const char value ) { return operator=(static_cast<long>(value)); }
@@ -33,7 +30,6 @@ namespace al { namespace srl
             Field & operator=( const int value ) { return operator=(static_cast<long>(value)); }
             Field & operator=( const unsigned int value ) { return operator=(static_cast<long>(value)); }
             Field & operator=( const double value ) { *this->value = value; return *this; }
-            */
             Field & operator=( const std::string value ) { *this->value = value; return *this; }
             Field & operator=( const char * const value ) { *this->value = value; return *this; }
 
@@ -152,6 +148,8 @@ namespace al { namespace srl
                 set_raw_value(wrapper["body"]);
             }
 
+            operator Field( void ) { return static_cast<Field>(wrapper); }
+
             int get_protocol_version( void ) const
                 { return wrapper["protocol-version"].is_integer() ? wrapper["protocol-version"].integer() : 0; }
             bool is_protocol_version_supported( void ) const
@@ -159,8 +157,11 @@ namespace al { namespace srl
 
             std::string get_module( void ) const
                 { return wrapper["module"].is_string() ? wrapper["module"].string() : ""; }
+            void set_module( const std::string module ) { wrapper["module"] = module; }
+
             std::string get_service( void ) const
                 { return wrapper["service"].is_string() ? wrapper["service"].string() : ""; }
+            void set_service( const std::string service ) { wrapper["service"] = service; }
 
             virtual std::string encode( void ) const { return wrapper.encode(); }
             virtual bool decode( const std::string raw_message )

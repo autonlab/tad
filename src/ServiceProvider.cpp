@@ -36,7 +36,6 @@ namespace al { namespace srl
 
     void BuiltinServiceProvider::handle_message( const InterfaceMessage & message, Connection * client )
     {
-        cout << "BuiltinServiceProvider::handle_message" << endl;
         if (get_name() == message.get_module())
         {
             std::string service = message.get_service();

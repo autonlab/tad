@@ -5,6 +5,7 @@
 
 #include "srl/Connection.hpp"
 #include "srl/Message.hpp"
+#include "srl/BuiltinMessageFactory.hpp"
 
 #include <set>
 #include <string>
@@ -26,10 +27,12 @@ namespace al { namespace srl
                 connection->send(message.encode());
 
                 // Wait for a response.
-                std::string response;
-                int tries = 100;
-                while (!connection->receive(response) && (tries-- > 0)) concurrent::msleep(1);
-                client->send(response);
+                std::string response = "";
+                int tries = 500;
+                while (!connection->receive(response) && (tries-- > 0)) concurrent::msleep(10);
+                if (response != "") client->send(response);
+                else client->send(ErrorMessageFactory::generate(
+                            message, "Service provider gave no response; timeout."));
             }
 
             std::string get_name( void ) const { return name; }

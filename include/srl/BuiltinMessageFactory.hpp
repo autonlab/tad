@@ -28,7 +28,7 @@ namespace al { namespace srl
             {
                 InterfaceMessage message(original_message.get_module(), original_message.get_service());
                 message["status"] = status_message;
-                message["original-body"] = static_cast<Field>(original_message.get_wrapper());
+                message["original-body"] = static_cast<Field>(original_message);
                 return message.encode();
             }
     };

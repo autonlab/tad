@@ -5,6 +5,9 @@
 
 #include <string>
 
+#include <iostream>
+using namespace std;
+
 namespace al { namespace srl
 {
     class Connection
@@ -29,11 +32,7 @@ namespace al { namespace srl
                 else return other != 0;
             }
 
-            virtual bool receive( std::string & message )
-            {
-                bool message_popped = in.pop(message);
-                return message_popped;
-            }
+            virtual bool receive( std::string & message ) { return in.pop(message); }
 
             virtual bool is_message_available( void ) { return in.size() > 0; }
 

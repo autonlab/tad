@@ -15,11 +15,35 @@ using namespace al;
 class MyService : public srl::CallbackConnection
 {
     protected:
-        virtual void handle( const std::string message )
+        virtual void handle( const std::string raw_message )
         {
-            cout << "MyService::handle\n" << message << endl;
+            cout << "\nMyService::handle\n" << raw_message << endl;
+            srl::InterfaceMessage message;
+            message.decode(raw_message);
+            if (message.get_module() == "MyService")
+            {
+                if (message.get_service() == "serviceA")
+                {
+                    if (message["a"].is_integer() && message["b"].is_integer())
+                    {
+                        srl::InterfaceMessage response(message.get_module(), message.get_service());
+                        response["result"] = message["a"].integer() - message["b"].integer();
+                        response["original-body"] = message;
+                        send(response.encode());
+                    } else send(srl::ErrorMessageFactory::generate(message, "Integers a and b must be provided."));
+                } else send(srl::ErrorMessageFactory::generate(message, "Service not implemented yet.")); 
+            }
         }
 
+};
+
+class MyClient : public srl::CallbackConnection
+{
+    protected:
+        virtual void handle( const std::string raw_message )
+        {
+            cout << "\nMyClient::handle - I gotz a message!\n" << raw_message << endl;
+        }
 };
 
 int main( void )
@@ -33,7 +57,7 @@ int main( void )
     // Start the controller.
     controller.start();
 
-    // Create a connection.
+    // Create a service connection.
     MyService service_connection;
     controller.add_connection(callback_interface.connect(service_connection));
 
@@ -43,14 +67,31 @@ int main( void )
     service_connection.send(srl::RegisterServiceMessageFactory::generate(
                 "MyService", std::vector<string>({"serviceB", "serviceD"})));
 
+    concurrent::msleep(100);
+
+    // Connect a client.
+    MyClient client_connection;
+    controller.add_connection(callback_interface.connect(client_connection));
+
+    // Ask for services.
+    srl::InterfaceMessage service_request("MyService", "serviceA");
+    service_request["a"] = 12;
+    service_request["b"] = 30;
+    client_connection.send(service_request.encode());
+    service_request.set_service("serviceB");
+    client_connection.send(service_request.encode());
+    service_request.set_service("serviceAlpha");
+    client_connection.send(service_request.encode());
+    service_request.set_module("FakeModule");
+    client_connection.send(service_request.encode());
+
     // Wait for message to be handled.
-    cout << "Waiting for controller to finish.." << endl;
-    controller.join();
+    concurrent::msleep(100);
 
     // Stop the controller.
-    //cout << "Stopping controller..." << endl;
-    //controller.stop();
-    //controller.join();
+    cout << "Stopping controller..." << endl;
+    controller.stop();
+    controller.join();
 
     // Done.
     cout << "Done." << endl;

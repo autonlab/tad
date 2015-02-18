@@ -31,8 +31,13 @@ namespace al { namespace srl
                     {
                         // Find the service provider and forward the message.
                         ServiceProvider * provider = controller.get_provider(message.get_module());
-                        if (provider) provider->handle_message(message, connection);
-                        else connection->send(ErrorMessageFactory::generate(
+                        if (provider)
+                        {
+                            if (provider->is_service_available(message.get_service()))
+                                provider->handle_message(message, connection);
+                            else connection->send(ErrorMessageFactory::generate(
+                                        message, "Invalid service"));
+                        } else connection->send(ErrorMessageFactory::generate(
                                     message, "Unregistered provider"));
                     }
                 }

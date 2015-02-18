@@ -76,9 +76,7 @@ namespace al { namespace srl
             }
 
 
-            concurrent::msleep(200);
-            static int i = 0;
-            if (++i == 10) break;
+            concurrent::msleep(10);
         }
 
         std::cout << "Stopping controller." << std::endl;
