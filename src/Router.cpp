@@ -1,6 +1,10 @@
+/*
+   Date:         February 18, 2015
+   Author(s):    Anthony Wertz
+   Copyright (c) Carnegie Mellon University
+*/
 #include "srl/Router.hpp"
 #include "srl/Controller.hpp"
-#include "srl/Message.hpp"
 #include "srl/BuiltinMessageFactory.hpp"
 #include "concurrent/Time.hpp"
 

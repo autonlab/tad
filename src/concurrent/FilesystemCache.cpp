@@ -3,7 +3,7 @@
    Author(s):    Anthony Wertz
    Copyright (c) Carnegie Mellon University
 */
-#include "concurrent/Cache.hpp"
+#include "concurrent/FilesystemCache.hpp"
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <dirent.h>

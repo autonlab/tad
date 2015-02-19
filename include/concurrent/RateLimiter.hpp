@@ -3,10 +3,10 @@
    Author(s):    Anthony Wertz
    Copyright (c) Carnegie Mellon University
 */
-#ifndef __LIB_CONCURRENT_RATE_LIMITER_HPP__
-#define __LIB_CONCURRENT_RATE_LIMITER_HPP__
+#ifndef __Concurrent_Rate_Limiter_hpp__
+#define __Concurrent_Rate_Limiter_hpp__
 
-#include "Time.hpp"
+#include "concurrent/Time.hpp"
 
 namespace al { namespace concurrent
 {
@@ -43,7 +43,7 @@ namespace al { namespace concurrent
              * Reset the object. This just sets the last update time to the
              * current time.
              */
-            inline void reset( void ) { deadline_nsec = Concurrent::ntime(); }
+            inline void reset( void ) { deadline_nsec = concurrent::ntime(); }
 
             /*!
              * Sleep until next update period. This will sleep the remaining
@@ -55,13 +55,13 @@ namespace al { namespace concurrent
                 deadline_nsec += period_nsec;
 
                 // Compare with current time.
-                long time_nsec = Concurrent::ntime();
+                long time_nsec = concurrent::ntime();
                 if (time_nsec > deadline_nsec)
                 {
                     ++missed_deadlines;
                     reset();
                 }
-                else Concurrent::nsleep_to(deadline_nsec);
+                else concurrent::nsleep_to(deadline_nsec);
             }
 
             /*!

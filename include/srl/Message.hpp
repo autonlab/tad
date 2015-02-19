@@ -1,5 +1,18 @@
+/*
+   Date:         February 18, 2015
+   Author(s):    Anthony Wertz
+   Copyright (c) Carnegie Mellon University
+*/
 #ifndef __SRL_Message_hpp__
 #define __SRL_Message_hpp__
+
+/*!
+ * The classes in this file create a standard interface to handling messages in
+ * the code so it will be consistent regardless of whether or not a different
+ * JSON library is used or even if the message format is changed entirely. It
+ * basically acts as a convinience wrapper to make things easier and quicker
+ * for lazy people like me. :-)
+ */
 
 #include <string>
 #include <sstream>
@@ -7,6 +20,10 @@
 
 namespace al { namespace srl
 {
+    /*!
+     * This class implements a field of a message. It provides an interface for
+     * determining the field's type, extracting its data, and creating new fields.
+     */
     class Field
     {
         public:
@@ -95,12 +112,23 @@ namespace al { namespace srl
             Field create_null( const std::string name )
                 { return Field((*value)[name]); }
 
+            /*!
+             * Accessors.
+             * @note Depending on the backend used, these may call an assertion if the
+             *          accessor used is inconsistent with the data stored (e.g. the
+             *          field is null and you try to extract an integer). For that
+             *          reason, make sure to call the is_* function first to determine
+             *          if the accessor is appropriate.
+             * @note wrt the last note, the current backend JsonCpp will assert.
+             */
+
             bool logical( void ) const { return value->asBool(); }
             long integer( void ) const { return value->asInt64(); }
             double real( void ) const { return value->asDouble(); }
             std::string string( void ) const { return value->asString(); }
             int size( void ) const { return is_array() ? value->size() : 0; }
 
+        protected:
             Json::Value * get_raw_value( void ) const { return value; }
             void set_raw_value( Json::Value * const new_value ) { value = new_value; }
             void set_raw_value( Json::Value & new_value ) { set_raw_value(&new_value); }
@@ -110,6 +138,10 @@ namespace al { namespace srl
             Json::Value * value;
     };
 
+    /*!
+     * This class encapsulates a generic message. It offers the interface for encoding
+     * and decoding messages to and from string representations.
+     */
     class GenericMessage : public Field
     {
         public:
@@ -136,6 +168,11 @@ namespace al { namespace srl
             mutable Json::StyledWriter writer;
     };
 
+    /*!
+     * This class implements an interface message, which includes some header information
+     * wrapped around the message data. It's used exactly the same as a GenericMessage
+     * except that it has custom accessors for header fields like protocol version.
+     */
     class InterfaceMessage : public GenericMessage
     {
         public:
@@ -147,8 +184,6 @@ namespace al { namespace srl
                 wrapper.create_object("body");
                 set_raw_value(wrapper["body"]);
             }
-
-            operator Field( void ) { return static_cast<Field>(wrapper); }
 
             int get_protocol_version( void ) const
                 { return wrapper["protocol-version"].is_integer() ? wrapper["protocol-version"].integer() : 0; }

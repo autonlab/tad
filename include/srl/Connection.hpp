@@ -1,56 +1,54 @@
+/*
+   Date:         February 18, 2015
+   Author(s):    Anthony Wertz
+   Copyright (c) Carnegie Mellon University
+*/
 #ifndef __SRL_Connection_hpp__
 #define __SRL_Connection_hpp__
 
-#include "concurrent/Queue.hpp"
-
 #include <string>
-
-#include <iostream>
-using namespace std;
 
 namespace al { namespace srl
 {
+    /*!
+     * This class provides an interface to generic connections.
+     */
     class Connection
     {
         public:
+            virtual ~Connection( void ) { disconnect(); }
+
+            /*!
+             * Send a message through the interface.
+             *
+             * @param message The message to send.
+             * @return True if sent successfully, false otherwise.
+             */
             virtual bool send( const std::string message ) = 0;
+
+            /*!
+             * Receive a message through the interface.
+             *
+             * @param [out] message The buffer in which to receive a message.
+             * @return True if a message was received successfully, false otherwise.
+             */
             virtual bool receive( std::string & message ) = 0;
+
+            /*!
+             * @return True if a message is available to be read, false otherwise.
+             */
             virtual bool is_message_available( void ) = 0;
+
+            /*!
+             * @return True if the connection is connected to the other endpoint,
+             *          false otherwise.
+             */
             virtual bool is_connected( void ) = 0;
-            virtual void disconnect( void ) = 0;
-    };
 
-    class CallbackConnection : public Connection
-    {
-        public:
-            CallbackConnection( void ) : other(0) { }
-            ~CallbackConnection( void ) { disconnect(); }
-
-            virtual bool send( const std::string message )
-            {
-                if (other) other->handle(message);
-                else return other != 0;
-            }
-
-            virtual bool receive( std::string & message ) { return in.pop(message); }
-
-            virtual bool is_message_available( void ) { return in.size() > 0; }
-
-            virtual bool is_connected( void ) { return other != 0; }
-
-            void connect( CallbackConnection * other ) { this->other = other; }
-            virtual void disconnect( void )
-            {
-                if (other) other->other = 0;
-                other = 0;
-            }
-
-        protected:
-            virtual void handle( const std::string message ) { in.push(message); }
-
-        private:
-            CallbackConnection * other;
-            concurrent::Queue<std::string> in;
+            /*!
+             * Disconnect the interface from its endpoint.
+             */
+            virtual void disconnect( void ) { }
     };
 } }
 

@@ -3,7 +3,8 @@
    Author(s):    Anthony Wertz
    Copyright (c) Carnegie Mellon University
 */
-#include "srl/Message.hpp"
+#include "srl/CommunicationInterface.hpp"
+#include "srl/Controller.hpp"
 
 namespace al { namespace srl
 {

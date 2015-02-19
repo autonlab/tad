@@ -3,8 +3,8 @@
    Author(s):    Anthony Wertz
    Copyright (c) Carnegie Mellon University
 */
-#ifndef __LIB_CONCCURRENT_THREAD_HPP__
-#define __LIB_CONCCURRENT_THREAD_HPP__
+#ifndef __Concurrent_Thread_hpp__
+#define __Concurrent_Thread_hpp__
 
 namespace al { namespace concurrent
 {

@@ -3,8 +3,8 @@
    Author(s):    Anthony Wertz
    Copyright (c) Carnegie Mellon University
 */
-#ifndef __TIME_HPP__
-#define __TIME_HPP__
+#ifndef __Concurrent_Time_hpp__
+#define __Concurrent_Time_hpp__
 
 namespace al { namespace concurrent
 {

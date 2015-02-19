@@ -3,10 +3,10 @@
    Author(s):    Anthony Wertz
    Copyright (c) Carnegie Mellon University
 */
-#ifndef __LIB_CONCURRENT_RATE_MONITOR_HPP__
-#define __LIB_CONCURRENT_RATE_MONITOR_HPP__
+#ifndef __Concurrent_Rate_Monitor_hpp__
+#define __Concurrent_Rate_Monitor_hpp__
 
-#include "Time.hpp"
+#include "concurrent/Time.hpp"
 
 namespace al { namespace concurrent
 {
@@ -28,7 +28,7 @@ namespace al { namespace concurrent
              */
             inline void reset( void )
             {
-                last_time_nsec = Concurrent::ntime();
+                last_time_nsec = concurrent::ntime();
                 elapsed_nsec = 0;
             }
 
@@ -40,7 +40,7 @@ namespace al { namespace concurrent
             inline long mark( void )
             {
                 // Compare with current time.
-                long time_nsec = Concurrent::ntime();
+                long time_nsec = concurrent::ntime();
                 long nsec_diff = time_nsec - last_time_nsec;
                 last_time_nsec = time_nsec;
                 elapsed_nsec += nsec_diff;

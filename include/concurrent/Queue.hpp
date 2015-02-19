@@ -3,10 +3,10 @@
    Author(s):    Anthony Wertz
    Copyright (c) Carnegie Mellon University
 */
-#ifndef __LIB_CONCURRENT_QUEUE_HPP__
-#define __LIB_CONCURRENT_QUEUE_HPP__
+#ifndef __Concurrent_Queue_hpp__
+#define __Concurrent_Queue_hpp__
 
-#include "Mutex.hpp"
+#include "MutexLocker.hpp"
 #include <queue>
 
 namespace al { namespace concurrent

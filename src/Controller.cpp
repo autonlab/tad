@@ -1,7 +1,14 @@
+/*
+   Date:         February 18, 2015
+   Author(s):    Anthony Wertz
+   Copyright (c) Carnegie Mellon University
+*/
 #include "srl/Controller.hpp"
+#include "srl/BuiltinServiceProvider.hpp"
 #include "concurrent/Time.hpp"
 
 #include <iostream>
+using namespace std;
 
 namespace al { namespace srl
 {
@@ -41,7 +48,7 @@ namespace al { namespace srl
     {
         // Add the builtin service provider.
         BuiltinServiceProvider * provider = new BuiltinServiceProvider(*this);
-        add_provider(provider);
+        register_provider(provider);
 
         // Start some routers.
         routers.resize(1);
@@ -63,6 +70,7 @@ namespace al { namespace srl
                 // If connection was disconnected, destroy it.
                 if (!connection->is_connected())
                 {
+                    cout << "Controller::Connection appears inactive. Deleting." << endl;
                     delete connection;
                     connections.erase(iter++);
                 }
@@ -70,7 +78,9 @@ namespace al { namespace srl
                 {
                     // Data is available?
                     if (connection->is_message_available())
+                    {
                         active_connections.push(connection);
+                    }
                     ++iter;
                 }
             }

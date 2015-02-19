@@ -3,8 +3,8 @@
    Author(s):    Anthony Wertz
    Copyright (c) Carnegie Mellon University
 */
-#ifndef __LIB_CONCURRENT_SHARED_MEMORY_HPP__
-#define __LIB_CONCURRENT_SHARED_MEMORY_HPP__
+#ifndef __Concurrent_Shared_Memory_hpp__
+#define __Concurrent_Shared_Memory_hpp__
 
 #include <string>
 
