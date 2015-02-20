@@ -1,4 +1,6 @@
 build/
 thirdparty/
 tmp/
+*.csv
+*.txt
 .syntastic*
