@@ -15,23 +15,25 @@ namespace al { namespace srl
 {
     void * Router::run_loop( void )
     {
-        concurrent::Queue<Connection *> & active_connections =
+        concurrent::UniqueQueue<Controller::ConnectionDescriptor *> & active_connections =
             controller.get_active_connections();
 
         while (!stopped)
         {
             // Handle any active conections.
-            Connection * connection;
-            while (!stopped && active_connections.pop(connection))
+            Controller::ConnectionDescriptor * cd;
+            while (!stopped && active_connections.pop(cd, false))
             {
+                cout << "    - Router: Found active connection. Handling..." << endl;
+
                 // Get the message.
+                Connection * connection = cd->get_connection();
                 std::string raw_message;
                 while (!stopped && connection->receive(raw_message))
                 {
                     // Parse message.
                     InterfaceMessage message;
-                    message.decode(raw_message);
-                    if (message.is_valid())
+                    if (message.decode(raw_message))
                     {
                         // Find the service provider and forward the message.
                         ServiceProvider * provider = controller.get_provider(message.get_module());
@@ -44,12 +46,24 @@ namespace al { namespace srl
                         } else connection->send(ErrorMessageFactory::generate(
                                     message, "Unregistered provider"));
                     }
+                    else
+                    {
+                        InterfaceMessage invalid_message("NA", "NA");
+                        invalid_message["raw-message"] = raw_message;
+                        connection->send(ErrorMessageFactory::generate(
+                                invalid_message, message.get_last_error()));
+                    }
                 }
+
+                // Release from queue.
+                cout << "    - Router: Finished handling." << endl;
+                cd->set_processing(false);
+                active_connections.release(cd);
             }
 
             concurrent::msleep(10);
         }
 
-        cout << "Exiting router." << endl;
+        cout << "    - Exiting router." << endl;
     }
 } }

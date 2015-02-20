@@ -10,7 +10,16 @@
 
 namespace al { namespace srl
 {
-    void BuiltinServiceProvider::handle_Shutdown( void ) { controller.stop(); }
+    void BuiltinServiceProvider::handle_NoOp( const InterfaceMessage & message, Connection * client )
+    {
+        client->send(StatusMessageFactory::generate(message, "Did nothing, just like you asked."));
+    }
+
+    void BuiltinServiceProvider::handle_Shutdown( const InterfaceMessage & message, Connection * client )
+    {
+        client->send(StatusMessageFactory::generate(message, "Server shutting down now..."));
+        controller.stop();
+    }
 
     void BuiltinServiceProvider::handle_RegisterService( const InterfaceMessage & message, Connection * client )
     {
@@ -40,7 +49,8 @@ namespace al { namespace srl
         if (get_name() == message.get_module())
         {
             std::string service = message.get_service();
-                 if ("Shutdown" == service) handle_Shutdown();
+                 if ("NoOp" == service) handle_NoOp(message, client);
+            else if ("Shutdown" == service) handle_Shutdown(message, client);
             else if ("RegisterService" == service) handle_RegisterService(message, client);
             else client->send(ErrorMessageFactory::generate(message, "Invalid service"));
         } else client->send(ErrorMessageFactory::generate(message, "Invalid module"));

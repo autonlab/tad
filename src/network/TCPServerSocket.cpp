@@ -66,7 +66,6 @@ namespace al { namespace network
         // If client socket is already connected, disconnect and free socket.
         if (client_socket)
         {
-            cout << "TCPServerSocket::deleting client socket" << endl;
             delete client_socket;
             client_socket = 0;
         }
@@ -89,7 +88,10 @@ namespace al { namespace network
                     socket_handle, reinterpret_cast<sockaddr *>(&client_address),
                     &client_address_size);
             if (client_socket_handle > 0)
+            {
                 client_socket = new TCPClientSocket(client_socket_handle);
+                client_socket->set_blocking(false);
+            }
         }
 
         return client_socket != 0;

@@ -1,22 +1,24 @@
 /*
-   Date:         September 22, 2014
+   Date:         February 19, 2015
    Author(s):    Anthony Wertz
    Copyright (c) Carnegie Mellon University
 */
-#ifndef __Concurrent_Queue_hpp__
-#define __Concurrent_Queue_hpp__
+#ifndef __Concurrent_Unique_Queue_hpp__
+#define __Concurrent_Unique_Queue_hpp__
 
 #include "MutexLocker.hpp"
 #include <queue>
+#include <set>
 
 namespace al { namespace concurrent
 {
     /*!
-     * This is a generic thread-safe wrapper for a STL queue which just uses
-     * a mutex to isolate read and write events.
+     * This is a generic thread-safe wrapper for a STL queue which uses
+     * a mutex to isolate read and write events. It also keeps elements in
+     * a set so only unique elements are added.
      */
     template <class T>
-    class Queue
+    class UniqueQueue
     {
         public:
             /*!
@@ -26,7 +28,11 @@ namespace al { namespace concurrent
             inline void push( T element )
             {
                 MutexLocker locker(mutex);
-                q.push(element);
+                if (s.find(element) == s.end())
+                {
+                    q.push(element);
+                    s.insert(element);
+                }
             }
 
             /*!
@@ -37,7 +43,13 @@ namespace al { namespace concurrent
             {
                 MutexLocker locker(mutex);
                 for (int e = 0; e < elements.size(); ++e)
-                    q.push(elements[e]);
+                {
+                    if (s.find(elements[e]) == s.end())
+                    {
+                        q.push(elements[e]);
+                        s.insert(elements[e]);
+                    }
+                }
             }
 
             /*!
@@ -46,10 +58,16 @@ namespace al { namespace concurrent
              * (i.e. if you tried to pop when there were no elements).
              * @param [out] element The element that will be written to with the
              *          popped value.
+             * @param release_from_set If true, this will also remove the popped
+             *          element from the set, allowing it to be reinserted into
+             *          the queue. You may want this to be set to false to allow
+             *          popping an element and preventing it from being reinserted
+             *          until finished processing, after which you'd use release.
              * @return True if an element existed and was popped, false if the
              *          queue was empty.
+             * @see release
              */
-            inline bool pop( T & element )
+            inline bool pop( T & element, const bool release_from_set = true )
             {
                 MutexLocker locker(mutex);
                 if (q.empty()) return false;
@@ -57,6 +75,7 @@ namespace al { namespace concurrent
                 {
                     element = q.front();
                     q.pop();
+                    if (release_from_set) s.erase(s.find(element));
                     return true;
                 }
             }
@@ -77,9 +96,19 @@ namespace al { namespace concurrent
                         elements[e] = q.front();
                         q.pop();
                     }
+                    s.clear();
                     return elements.size();
                 }
             }
+
+            /*!
+             * Releases an element from the queue's set. This means the element
+             * can be reinserted into the queue, regardless of whether or not it's
+             * already there. This is usually used in combination with pop using
+             * release_from_set = false to provide time to process the element.
+             * @param element The element to release.
+             */
+            inline void release( const T element ) { s.erase(s.find(element)); }
 
             /*!
              * @return Number of elements in queue.
@@ -90,8 +119,18 @@ namespace al { namespace concurrent
                 return q.size();
             }
 
+            /*!
+             * @return True if the element is already in the queue, false otherwise.
+             */
+            inline bool is_in_queue( const T element )
+            {
+                MutexLocker locker(mutex);
+                return s.find(element) != s.end();
+            }
+
         private:
             std::queue<T> q;
+            std::set<T> s;
             Mutex mutex;
     };
 } }

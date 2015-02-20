@@ -145,30 +145,30 @@ namespace al { namespace srl
     class GenericMessage : public Field
     {
         public:
-            GenericMessage( void ) : Field(message), raw_message("") { }
+            GenericMessage( void ) : Field(message), raw_message(""), parsed_okay(false), last_error("") { }
 
             virtual std::string encode( void ) const { return writer.write(message); }
             virtual bool decode( const std::string raw_message )
             {
                 this->raw_message = raw_message;
-                return reader.parse(raw_message, message, true);
+                parsed_okay = reader.parse(raw_message, message, true);
+                if (!parsed_okay) last_error = reader.getFormattedErrorMessages();
+                return parsed_okay;
             }
 
-            bool is_valid( void ) const { return reader.good(); }
-            std::string get_last_error( void ) const
-            {
-                if (!is_valid()) return reader.getFormattedErrorMessages();
-                else return "No errors.";
-            }
+            bool is_valid( void ) const { return parsed_okay; }
+            std::string get_last_error( void ) const { return last_error; }
 
         protected:
             std::string raw_message;
+            bool parsed_okay;
+            std::string last_error;
             Json::Value message;
             Json::Reader reader;
             mutable Json::StyledWriter writer;
     };
 
-    /*!
+    /*
      * This class implements an interface message, which includes some header information
      * wrapped around the message data. It's used exactly the same as a GenericMessage
      * except that it has custom accessors for header fields like protocol version.
@@ -205,7 +205,13 @@ namespace al { namespace srl
                 {
                     set_raw_value(wrapper["body"]);
                     return true;
-                } else return false;
+                }
+                else
+                {
+                    parsed_okay = false;
+                    last_error = wrapper.get_last_error();
+                    return false;
+                }
             }
 
             const GenericMessage & get_wrapper( void ) const { return wrapper; }

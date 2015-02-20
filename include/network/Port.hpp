@@ -38,9 +38,10 @@ namespace al { namespace network
              * @param max_read_size The maximum amount of data to read in. A value less
              *          than zero will attempt to read in all available data.
              * @return The number of bytes actually read in.
+             * @note This assumes the data you're reading in can be represented by a string,
+             *          i.e. is null terminated and contains printable characters.
              */
-            virtual int read( std::string & buffer, const int max_read_size = -1 );
-
+            virtual int read( std::string & buffer, int max_read_size = -1 );
 
             /*!
              * Write data from a buffer.

@@ -12,9 +12,13 @@ namespace al { namespace srl
 
     void CallbackInterface::connect( CallbackConnection & endpoint )
     {
+        // Create a connection and connect to the endpoint.
         CallbackConnection * other_endpoint = new CallbackConnection;
         endpoint.connect(other_endpoint);
         other_endpoint->connect(&endpoint);
-        controller.add_connection(other_endpoint);
+
+        // Add connection to controller with an expiration of -1, so the connection
+        // won't expire.
+        controller.add_connection(other_endpoint, -1);
     }
 } }

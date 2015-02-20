@@ -64,6 +64,64 @@ namespace al { namespace srl
     };
 
     /*!
+     * This class generates a no-op message. This does nothing, but allows clients and services
+     * who wish to maintain a connection the ability to reset their idle period so their
+     * connection is not dropped by the server.
+     */
+    class NoOpMessageFactory
+    {
+        public:
+            /*!
+             * Generate a no-op message.
+             *
+             * @return The encoded string message to be sent along.
+             */
+            static std::string generate( void )
+            {
+                InterfaceMessage message("Builtin", "NoOp");
+                return message.encode();
+            }
+    };
+
+    /*!
+     * This class generates a disconnect message, sent to providers who are disconnected.
+     */
+    class DisconnectMessageFactory
+    {
+        public:
+            /*!
+             * Generate a shutdown message.
+             *
+             * @param reason The reason the provider is being disconnected.
+             * @return The encoded string message to be sent along.
+             */
+            static std::string generate( const std::string reason )
+            {
+                InterfaceMessage message("Builtin", "Disconnect");
+                message["disconnect-reason"] = reason;
+                return message.encode();
+            }
+    };
+
+    /*!
+     * This class generates a shutdown message sent to providers when the serve is shut down.
+     */
+    class ShutdownMessageFactory
+    {
+        public:
+            /*!
+             * Generate a shutdown message.
+             *
+             * @return The encoded string message to be sent along.
+             */
+            static std::string generate( void )
+            {
+                InterfaceMessage message("Builtin", "Shutdown");
+                return message.encode();
+            }
+    };
+
+    /*!
      * This class alows generation of and extraction from RegisterService messages.
      */
     class RegisterServiceMessageFactory

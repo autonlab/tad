@@ -6,16 +6,15 @@
 #include "network/TCPPort.hpp"
 
 #include <cstring>
+#include <assert.h>
 
 #ifdef WIN32
 #else
 #include <unistd.h>
+#include <fcntl.h>
 #endif
 
 #include <sys/ioctl.h>
-
-#include <iostream>
-using namespace std;
 
 namespace al { namespace network
 {
@@ -38,16 +37,12 @@ namespace al { namespace network
 
     TCPClientSocket::~TCPClientSocket( void )
     {
-        cout << "TCPClientSocket::~TCPClientSocket destroyed" << endl;
         disconnect();
-        if (address)
-            freeaddrinfo(address);
+        if (address) freeaddrinfo(address);
     }
 
     bool TCPClientSocket::connect( void )
     {
-        cout << "TCPClientSocket::Connect called" << endl;
-
         // Disconnect if currently connected.
         disconnect();
 
@@ -79,15 +74,14 @@ namespace al { namespace network
         }
 
         // If not connected, close socket.
-        if (status == -1)
-            disconnect();
+        if (status == -1) disconnect();
+        else set_blocking(false);
 
         return status != -1;
     }
 
     void TCPClientSocket::disconnect( void )
     {
-        cout << "TCPClientSocket::disconnect called" << endl;
         if (socket_handle != -1)
         {
             #ifdef WIN32
@@ -99,23 +93,23 @@ namespace al { namespace network
         }
     }
 
+    bool TCPClientSocket::set_blocking( const bool blocking )
+    {
+        if (!socket_handle) return false;
+
+        // Set client socket to non-blocking.
+#ifdef WIN32
+        unsigned long mode = 0;
+        return ioctlsocket(socket_handle, FIONBIO, &mode) == 0;
+#else
+        int flags = fcntl(socket_handle, F_GETFL, 0);
+        if (flags < 0) return false;
+        return fcntl(socket_handle, F_SETFL, flags | O_NONBLOCK) == 0;
+#endif
+    }
+
     int TCPClientSocket::ready_to_read( const int timeout ) const
     {
-        /*
-        fd_set set;
-        timeval wait;
-
-        FD_ZERO(&set);
-        FD_SET(socket_handle, &set);
-
-        memset(&wait, 0, sizeof(wait));
-        wait.tv_usec = timeout;
-        
-        int result = select(socket_handle + 1, &set, NULL, NULL, &wait);
-        if (result == -1) return false; // Fail silently. ATW TODO: Log?
-        else if (result == 0) return false; // Timeout; not ready.
-        else return FD_ISSET(socket_handle, &set) != 0;
-        */
         int bytes_available;
         ioctl(socket_handle, FIONREAD, &bytes_available);
         return bytes_available;

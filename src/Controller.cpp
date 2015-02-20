@@ -24,7 +24,13 @@ namespace al { namespace srl
         }
         std::cout << "  - Closing providers..." << std::endl;
         for (auto iter = providers.begin(); iter != providers.end(); ++iter)
+        {
+            ServiceProvider * provider = iter->second;
+            if (provider->get_connection()->is_connected())
+                provider->get_connection()->send(ShutdownMessageFactory::generate());
+
             delete iter->second;
+        }
         std::cout << "  - Closing managed comm interfaces..." << std::endl;
         for (int i = 0; i < comm_ifs.size(); ++i)
         {
@@ -35,12 +41,12 @@ namespace al { namespace srl
             }
         }
         std::cout << "  - Closing connections..." << std::endl;
-        Connection * connection;
-        while (active_connections.pop(connection));
+        ConnectionDescriptor * cd;
+        while (active_connections.pop(cd));
         for (auto iter = connections.begin(); iter != connections.end(); ++iter)
         {
-            (*iter)->disconnect();
-            delete *iter;
+            (*iter).get_connection()->disconnect();
+            delete (*iter).get_connection();
         }
     }
 
@@ -62,29 +68,43 @@ namespace al { namespace srl
         {
             // Loop through connections looking for messages and removing disconnected
             // connections.
+            long current_time = concurrent::stime();
             auto iter = connections.begin();
             while (iter != connections.end())
             {
-                Connection * connection = *iter;
+                ConnectionDescriptor & cd = *iter;
+                Connection * connection = cd.get_connection();
+                bool expired = cd.is_expired(current_time);
 
                 // If connection was disconnected, destroy it.
                 if (!connection->is_connected())
                 {
-                    cout << "Controller::Connection appears inactive. Deleting." << endl;
-                    delete connection;
+                    cout << " - Connection appears disconnected. Deleting..." << endl;
+                    destroy_connection(connection);
+                    connections.erase(iter++);
+                }
+
+                // If the connection is passed its expiration, destroy it.
+                else if (expired && !cd.is_being_processed())
+                {
+                    cout << " - Connection has expired. Deleting..." << endl;
+                    destroy_connection(connection, "Session timed out.");
                     connections.erase(iter++);
                 }
                 else
                 {
                     // Data is available?
-                    if (connection->is_message_available())
+                    if (connection->is_message_available() && !active_connections.is_in_queue(&cd))
                     {
-                        active_connections.push(connection);
+                        cout << " - Connection has activity, pushing to active queue." << endl;
+                        if (cd.get_expiration() > 0)
+                            cd.set_expiration(concurrent::stime() + connection_timeout);
+                        cd.set_processing(true);
+                        active_connections.push(&cd);
                     }
                     ++iter;
                 }
             }
-
 
             concurrent::msleep(10);
         }

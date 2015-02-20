@@ -17,12 +17,14 @@ namespace al { namespace srl
                 controller(controller),
                 ServiceProvider("Builtin", NULL)
             {
+                add_service("NoOp");
                 add_service("Shutdown");
                 add_service("RegisterService");
             }
 
         private:
-            void handle_Shutdown( void );
+            void handle_NoOp( const InterfaceMessage & message, Connection * client );
+            void handle_Shutdown( const InterfaceMessage & message, Connection * client );
             void handle_RegisterService( const InterfaceMessage & message, Connection * client );
 
             virtual void handle_message( const InterfaceMessage & message, Connection * client );

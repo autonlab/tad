@@ -62,6 +62,14 @@ namespace al { namespace network
             void disconnect( void );
 
             /*!
+             * Sets the port to either blocking or non-blocking.
+             *
+             * @param blocking True if the socket should be blocking, false otherwise.
+             * @return True if updated successfully, false otherwise.
+             */
+            bool set_blocking( const bool blocking = true );
+
+            /*!
              * Determine if there is data on the port.
              *
              * @param timeout The time (in microsecds) to wait for data to read.
