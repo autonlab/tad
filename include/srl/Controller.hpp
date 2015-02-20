@@ -34,11 +34,20 @@ namespace al { namespace srl
             class ConnectionDescriptor
             {
                 public:
-                    ConnectionDescriptor( Connection * connection, const long expiration ) :
-                        connection(connection), expiration(expiration), processing(false) { }
+                    ConnectionDescriptor( void ) :
+                        id(-1), connection(0), expiration(1), processing(false) { }
+
+                    ConnectionDescriptor(
+                            const int id,
+                            Connection * const connection,
+                            const long expiration ) :
+                        id(id), connection(connection),
+                        expiration(expiration), processing(false) { }
 
                     bool is_expired( const long current_time ) const
                         { return (expiration > 0) && (current_time > expiration); }
+
+                    int get_id( void ) const { return id; }
 
                     Connection * get_connection( void ) const { return connection; }
 
@@ -49,6 +58,7 @@ namespace al { namespace srl
                     void set_processing( const bool flag ) { processing = flag; }
 
                 private:
+                    int             id;
                     Connection *    connection;
                     long            expiration;
                     bool            processing;
@@ -58,7 +68,8 @@ namespace al { namespace srl
             static const long DefaultIdleConnectionTimeout = 60*10; // Seconds. (10 minutes.)
 
         public:
-            Controller( void ) : connection_timeout(DefaultIdleConnectionTimeout) { }
+            Controller( void ) :
+                next_client_id(100), connection_timeout(DefaultIdleConnectionTimeout) { }
 
             /*!
              * Register an interface with the controller.
@@ -84,7 +95,23 @@ namespace al { namespace srl
             {
                 cout << " - Established new connection." << endl;
                 if (expiration == 0) expiration = concurrent::stime() + connection_timeout;
-                connections.push_front(ConnectionDescriptor(connection, expiration));
+                connections.insert(
+                        std::pair<int, ConnectionDescriptor>(
+                            next_client_id,
+                            ConnectionDescriptor(next_client_id, connection, expiration)));
+                ++next_client_id;
+            }
+
+            /*!
+             * Find a client connection by ID.
+             * 
+             * @param The client connection ID.
+             * @return A pointer to the client's connection, or false if not found.
+             */
+            ConnectionDescriptor * get_connection( const int id )
+            {
+                auto elem = connections.find(id);
+                return elem != connections.end() ? &(elem->second) : NULL;
             }
 
             /*!
@@ -182,8 +209,9 @@ namespace al { namespace srl
             }
 
         private:
+            int                                         next_client_id;
             long                                        connection_timeout;
-            std::list<ConnectionDescriptor>             connections;
+            std::map<int, ConnectionDescriptor>         connections;
             concurrent::UniqueQueue<ConnectionDescriptor *>
                                                         active_connections;
 

@@ -8,20 +8,39 @@
 #include "srl/BuiltinMessageFactory.hpp"
 #include "srl/Controller.hpp"
 
+#include "srl/LoopbackConnection.hpp"
+
 namespace al { namespace srl
 {
-    void BuiltinServiceProvider::handle_NoOp( const InterfaceMessage & message, Connection * client )
+    BuiltinServiceProvider::BuiltinServiceProvider( Controller & controller) :
+        controller(controller),
+        ServiceProvider("Builtin", NULL)
     {
-        client->send(StatusMessageFactory::generate(message, "Did nothing, just like you asked."));
+        connection = new LoopbackConnection;
+        controller.add_connection(connection);
+        add_service("NoOp");
+        add_service("Shutdown");
+        add_service("RegisterService");
     }
 
-    void BuiltinServiceProvider::handle_Shutdown( const InterfaceMessage & message, Connection * client )
+    void BuiltinServiceProvider::handle_NoOp(
+            const InterfaceMessage & message,
+            Connection * const client )
     {
-        client->send(StatusMessageFactory::generate(message, "Server shutting down now..."));
+        connection->send(StatusMessageFactory::generate(message, "Did nothing, just like you asked."));
+    }
+
+    void BuiltinServiceProvider::handle_Shutdown(
+            const InterfaceMessage & message,
+            Connection * const client )
+    {
+        connection->send(StatusMessageFactory::generate(message, "Server shutting down now..."));
         controller.stop();
     }
 
-    void BuiltinServiceProvider::handle_RegisterService( const InterfaceMessage & message, Connection * client )
+    void BuiltinServiceProvider::handle_RegisterService(
+            const InterfaceMessage & message,
+            Connection * const client )
     {
         std::string provider_name;
         std::vector<std::string> services;
@@ -40,11 +59,13 @@ namespace al { namespace srl
                 provider->add_service(services[i]);
 
             // Done.
-            client->send(StatusMessageFactory::generate(message, "Services added"));
-        } else client->send(ErrorMessageFactory::generate(message, "Parse error"));
+            connection->send(StatusMessageFactory::generate(message, "Services added"));
+        } else connection->send(ErrorMessageFactory::generate(message, "Parse error"));
     }
 
-    void BuiltinServiceProvider::handle_message( const InterfaceMessage & message, Connection * client )
+    void BuiltinServiceProvider::handle_message(
+            const InterfaceMessage & message,
+            Connection * const client )
     {
         if (get_name() == message.get_module())
         {
@@ -52,7 +73,7 @@ namespace al { namespace srl
                  if ("NoOp" == service) handle_NoOp(message, client);
             else if ("Shutdown" == service) handle_Shutdown(message, client);
             else if ("RegisterService" == service) handle_RegisterService(message, client);
-            else client->send(ErrorMessageFactory::generate(message, "Invalid service"));
-        } else client->send(ErrorMessageFactory::generate(message, "Invalid module"));
+            else connection->send(ErrorMessageFactory::generate(message, "Invalid service"));
+        } else connection->send(ErrorMessageFactory::generate(message, "Invalid module"));
     }
 } }

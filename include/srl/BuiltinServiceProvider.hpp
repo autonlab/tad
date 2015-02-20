@@ -13,21 +13,14 @@ namespace al { namespace srl
     class BuiltinServiceProvider : public ServiceProvider
     {
         public:
-            BuiltinServiceProvider( Controller & controller) :
-                controller(controller),
-                ServiceProvider("Builtin", NULL)
-            {
-                add_service("NoOp");
-                add_service("Shutdown");
-                add_service("RegisterService");
-            }
+            BuiltinServiceProvider( Controller & controller);
 
         private:
-            void handle_NoOp( const InterfaceMessage & message, Connection * client );
-            void handle_Shutdown( const InterfaceMessage & message, Connection * client );
-            void handle_RegisterService( const InterfaceMessage & message, Connection * client );
+            void handle_NoOp( const InterfaceMessage & message, Connection * const client );
+            void handle_Shutdown( const InterfaceMessage & message, Connection * const client );
+            void handle_RegisterService( const InterfaceMessage & message, Connection * const client );
 
-            virtual void handle_message( const InterfaceMessage & message, Connection * client );
+            virtual void handle_message( const InterfaceMessage & message, Connection * const client );
 
         private:
             Controller & controller;

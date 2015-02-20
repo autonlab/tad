@@ -32,7 +32,7 @@ namespace al { namespace srl
                     const InterfaceMessage & original_message,
                     const std::string error_message )
             {
-                InterfaceMessage message(original_message.get_module(), original_message.get_service());
+                InterfaceMessage message(original_message);
                 message["error"] = error_message;
                 message["original-message"] = static_cast<Field>(original_message.get_wrapper());
                 return message.encode();
@@ -56,7 +56,7 @@ namespace al { namespace srl
                     const InterfaceMessage & original_message,
                     const std::string status_message )
             {
-                InterfaceMessage message(original_message.get_module(), original_message.get_service());
+                InterfaceMessage message(original_message);
                 message["status"] = status_message;
                 message["original-message"] = static_cast<Field>(original_message.get_wrapper());
                 return message.encode();

@@ -26,7 +26,7 @@ namespace al { namespace srl
         for (auto iter = providers.begin(); iter != providers.end(); ++iter)
         {
             ServiceProvider * provider = iter->second;
-            if (provider->get_connection()->is_connected())
+            if (provider->get_connection() && provider->get_connection()->is_connected())
                 provider->get_connection()->send(ShutdownMessageFactory::generate());
 
             delete iter->second;
@@ -45,8 +45,8 @@ namespace al { namespace srl
         while (active_connections.pop(cd));
         for (auto iter = connections.begin(); iter != connections.end(); ++iter)
         {
-            (*iter).get_connection()->disconnect();
-            delete (*iter).get_connection();
+            iter->second.get_connection()->disconnect();
+            delete iter->second.get_connection();
         }
     }
 
@@ -72,7 +72,7 @@ namespace al { namespace srl
             auto iter = connections.begin();
             while (iter != connections.end())
             {
-                ConnectionDescriptor & cd = *iter;
+                ConnectionDescriptor & cd = iter->second;
                 Connection * connection = cd.get_connection();
                 bool expired = cd.is_expired(current_time);
 

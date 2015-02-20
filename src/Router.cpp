@@ -35,16 +35,37 @@ namespace al { namespace srl
                     InterfaceMessage message;
                     if (message.decode(raw_message))
                     {
-                        // Find the service provider and forward the message.
-                        ServiceProvider * provider = controller.get_provider(message.get_module());
-                        if (provider)
+                        // Is this going to a specific client?
+                        if (message.get_client_id() > -1)
                         {
-                            if (provider->is_service_available(message.get_service()))
-                                provider->handle_message(message, connection);
-                            else connection->send(ErrorMessageFactory::generate(
-                                        message, "Invalid service"));
-                        } else connection->send(ErrorMessageFactory::generate(
-                                    message, "Unregistered provider"));
+                            cout << "      . Found response to forward to client." << endl;
+                            Controller::ConnectionDescriptor * dest_cd =
+                                controller.get_connection(message.get_client_id());
+                            if (dest_cd)
+                            {
+                                if (dest_cd->get_connection() && dest_cd->get_connection()->is_connected())
+                                    dest_cd->get_connection()->send(raw_message);
+                                else cout << "    * Err: Fwd to disconnected client" << endl;
+                            } else cout << "    * Err: Fwd to unknown client" << endl;
+                        }
+
+                        // Find the service provider and forward the message.
+                        else
+                        {
+                            cout << "      . Found request to forward to provider." << endl;
+                            ServiceProvider * provider = controller.get_provider(message.get_module());
+                            if (provider)
+                            {
+                                if (provider->is_service_available(message.get_service()))
+                                {
+                                    message.set_client_id(cd->get_id());
+                                    provider->handle_message(message, connection);
+                                }
+                                else connection->send(ErrorMessageFactory::generate(
+                                            message, "Invalid service"));
+                            } else connection->send(ErrorMessageFactory::generate(
+                                        message, "Unregistered provider"));
+                        }
                     }
                     else
                     {

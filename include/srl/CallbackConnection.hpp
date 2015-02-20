@@ -43,7 +43,7 @@ namespace al { namespace srl
              *
              * @param other The other endpoint.
              */
-            void connect( CallbackConnection * other ) { this->other = other; }
+            void connect( CallbackConnection * const other ) { this->other = other; }
 
             virtual void disconnect( void )
             {

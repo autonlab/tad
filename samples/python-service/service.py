@@ -52,13 +52,17 @@ while True:
         # Handle service calls.
         elif message.get_module() == 'PyService':
             if message.get_service() == 'add':
-                response = srl.InterfaceMessage('PyService', 'add')
+                response = srl.InterfaceMessage('PyService', 'add', message.get_client_id())
                 response['result'] = int(message['a']) + int(message['b'])
+                print('Response:')
+                pprint(response)
                 connection.send(response)
 
             elif message.get_service() == 'subtract':
-                response = srl.InterfaceMessage('PyService', 'subtract')
+                response = srl.InterfaceMessage('PyService', 'subtract', message.get_client_id())
                 response['result'] = int(message['a']) - int(message['b'])
+                print('Response:')
+                pprint(response)
                 connection.send(response)
 
             # This shouldn't happen.

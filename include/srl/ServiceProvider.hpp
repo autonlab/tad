@@ -19,11 +19,13 @@ namespace al { namespace srl
     class ServiceProvider
     {
         public:
-            ServiceProvider( const std::string name, Connection * connection ) :
+            ServiceProvider( const std::string name, Connection * const connection ) :
                 name(name), connection(connection)
             { }
 
-            virtual void handle_message( const InterfaceMessage & message, Connection * client );
+            virtual void handle_message(
+                    const InterfaceMessage & message,
+                    Connection * const client );
 
             std::string get_name( void ) const { return name; }
             Connection * get_connection( void ) const { return connection; }
@@ -32,7 +34,7 @@ namespace al { namespace srl
             bool is_service_available( const std::string service )
                 { return services.find(service) != services.end(); }
 
-        private:
+        protected:
             std::string name;
             std::set<std::string> services;
             Connection * connection;

@@ -2,8 +2,15 @@ import json
 import socket
 
 class InterfaceMessage:
-    def __init__( self, module = '', service = '' ):
-        self.fields = {'protocol-version': 1000, 'module': module, 'service': service, 'body': {}}
+    def __init__( self, module = '', service = '', client_id = -1 ):
+        self.fields = \
+        {
+            'protocol-version'  : 1000,
+            'module'            : module,
+            'service'           : service,
+            'client-id'         : client_id,
+            'body'              : {}
+        }
 
     def decode( self, raw_message ):
         self.fields = json.loads(raw_message)
@@ -11,6 +18,9 @@ class InterfaceMessage:
 
     def encode( self ):
         return json.dumps(self.fields)
+
+    def get_protocol_version( self ):
+        return self.fields['protocol-version']
 
     def get_module( self ):
         return self.fields['module']
@@ -24,8 +34,11 @@ class InterfaceMessage:
     def set_service( self, service ):
         self.fields['service'] = service
 
-    def get_protocol_version( self ):
-        return self.fields['protocol-version']
+    def get_client_id( self ):
+        return self.fields['client-id']
+
+    def set_client_id( self, client_id ):
+        self.fields['client-id'] = client_id;
 
     def __getitem__( self, i ):
         return self.fields['body'][i]
@@ -42,7 +55,10 @@ class ErrorMessageFactory:
         if not isinstance(original_message, InterfaceMessage):
             raise Exception('original_message should be an instance of class InterfaceMessage!')
 
-        message = InterfaceMessage(original_message.get_module(), original_message.get_service())
+        message = InterfaceMessage(
+                original_message.get_module(),
+                original_message.get_service(),
+                original_message.get_client_id())
         message['error'] = error_message
         message['original-message'] = original_message.fields
         return message.encode()
@@ -53,7 +69,10 @@ class StatusMessageFactory:
         if not isinstance(original_message, InterfaceMessage):
             raise Exception('original_message should be an instance of class InterfaceMessage!')
 
-        message = InterfaceMessage(original_message.get_module(), original_message.get_service())
+        message = InterfaceMessage(
+                original_message.get_module(),
+                original_message.get_service(),
+                original_message.get_client_id())
         message['status'] = status_message
         message['original-message'] = original_message.fields
         return message.encode()

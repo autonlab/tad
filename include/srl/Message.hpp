@@ -176,11 +176,25 @@ namespace al { namespace srl
     class InterfaceMessage : public GenericMessage
     {
         public:
-            InterfaceMessage( const std::string module = "", const std::string service = "" )
+            InterfaceMessage(
+                    const std::string module = "",
+                    const std::string service = "",
+                    const int client_id = -1 )
             {
                 wrapper.create("protocol-version", 1000);
                 wrapper.create("module", module);
                 wrapper.create("service", service);
+                wrapper.create("client-id", client_id);
+                wrapper.create_object("body");
+                set_raw_value(wrapper["body"]);
+            }
+
+            InterfaceMessage( const InterfaceMessage & original_message )
+            {
+                wrapper.create("protocol-version", 1000);
+                wrapper.create("module", original_message.get_module());
+                wrapper.create("service", original_message.get_service());
+                wrapper.create("client-id", original_message.get_client_id());
                 wrapper.create_object("body");
                 set_raw_value(wrapper["body"]);
             }
@@ -197,6 +211,10 @@ namespace al { namespace srl
             std::string get_service( void ) const
                 { return wrapper["service"].is_string() ? wrapper["service"].string() : ""; }
             void set_service( const std::string service ) { wrapper["service"] = service; }
+
+            int get_client_id( void ) const
+                { return wrapper["client-id"].is_integer() ? wrapper["client-id"].integer() : -1; }
+            void set_client_id( const int client_id ) { wrapper["client-id"] = client_id; }
 
             virtual std::string encode( void ) const { return wrapper.encode(); }
             virtual bool decode( const std::string raw_message )
