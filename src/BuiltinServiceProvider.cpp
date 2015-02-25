@@ -48,6 +48,16 @@ namespace al { namespace srl
         {
             // Find the service provider, if available.
             ServiceProvider * provider = controller.get_provider(provider_name);
+
+            // Make sure provider connection matches client.
+            if (provider && (provider->get_connection() != client))
+            {
+                cout << " - Unregistering provider to add new." << endl;
+                controller.unregister_provider(provider_name, "New client registered services under this name.");
+                provider = 0;
+            }
+
+            // Add new provider if necessary.
             if (!provider)
             {
                 provider = new ServiceProvider(provider_name, client);
