@@ -1,19 +1,19 @@
 from multiprocessing import Process, Manager, Queue, Lock
 import time
-import classifier_services as cs
-from datetime import datetime
+from event_detector import EventDetector
+import srl, srl_classifier
 
 def safe_print( l, m ):
     l.acquire()
     print(m)
     l.release()
 
-def worker_process( i, q, s, pl ):
+def worker_process( i, t, r, s, pl ):
     safe_print(pl, '  - Worker process %d started.' % i)
 
     iters = 0
     while True:
-        task                = q.get()
+        task                = t.get()
 
         path                = s[0]
         additional_phones   = s[1]
@@ -23,19 +23,25 @@ def worker_process( i, q, s, pl ):
         if task == ['exit']:
             break
 
-        elif task == ['init']:
+        elif task[1] == 'init':
+            r.put([task[0], 0])
+
             additional_phones, phone2cluster = \
-                    cs.EventDetector.create_phone_clusters(path)
+                    EventDetector.create_phone_clusters(path)
+
             s[1] = additional_phones
             s[2] = phone2cluster
 
-        elif task[0] == 'process':
-            result = cs.EventDetector.cheap_event_report(
+            r.put([task[0], 1, None])
+
+        elif task[1] == 'process':
+            r.put([task[0], 0])
+
+            result = EventDetector.cheap_event_report(
                     path, additional_phones, phone2cluster,
                     task[2], task[3], task[4], task[5])
-            with open(task[1], 'w') as f:
-                for x in result:
-                    f.write(x[0].strftime('%m/%d/%Y') + ',' + ','.join([str(y) for y in x[1:]]) + "\n")
+
+            r.put([task[0], 1, result])
             safe_print(pl, '  - Worker %d: Finished processing task ''%s''' % (i, task[1]))
 
         else:
@@ -43,15 +49,43 @@ def worker_process( i, q, s, pl ):
 
     safe_print(pl, '  - Worker process %d exited.' % i)
 
+def wait_for_data( connection, max_timeout = 1 ):
+    time_waited = 0
+    while time_waited < max_timeout:
+        try:
+            response = connection.receive()
+        except:
+            return ''
+
+        if not response:
+            time.sleep(0.1)
+            time_waited += 0.1
+        else: break
+
+    return response
+
 if __name__ == '__main__':
+    global killed
+    killed = False
+
     print('Master thread started.')
+
+    # Establish connection with server.
+    connection = srl.TCPConnection('127.0.0.1:12345')
+
+    # Register available services.
+    connection.send(srl.RegisterServiceMessageFactory.generate(
+        'PyClassifier', ['Progress', 'Init', 'CheapEventReport']))
+    response = wait_for_data(connection, 5)
+    if not response: raise Exception('Could not register services with the server!')
 
     manager = Manager()
 
     # Initialize shared objects.
     path = 'snapshot/'
 
-    q = Queue()
+    t = Queue()             # Task queue
+    r = Queue()             # Result queue
     s = manager.list()
     s.append(path)          # Path
     s.append({})            # additional_phones
@@ -62,31 +96,117 @@ if __name__ == '__main__':
     proc_count = 2
     procs = [None]*proc_count;
     for i in xrange(0, proc_count):
-        procs[i] = Process(target=worker_process, args=(i, q, s, pl))
+        procs[i] = Process(target=worker_process, args=(i, t, r, s, pl))
         procs[i].start()
 
-    # Ask for initialization, and wait until complete.
-    safe_print(pl, 'Waiting on initialization...')
-    q.put(['init'])
-    while (len(s[1]) == 0) or (len(s[2]) == 0):
-        time.sleep(1)
+    # Wait for service requests.
+    Uninitialized   = 0
+    Initializing    = 1
+    Initialized     = 2
 
-    # Handle the two classifications.
-    safe_print(pl, 'Initialization finished. Sending processing tasks...')
-    q.put(['process',
-        'mp_superbowl.csv',
-        'NORTH_JERSEY_NEW_JERSEY', [],
-        datetime.strptime('Jan/05/2014','%b/%d/%Y').date(),
-        datetime.strptime('Mar/02/2014','%b/%d/%Y').date()])
-    q.put(['process',
-        'mp_atlanta.csv',
-        'ATLANTA_GEORGIA', [],
-        datetime.strptime('Feb/11/2014','%b/%d/%Y').date(),
-        datetime.strptime('Feb/11/2015','%b/%d/%Y').date()])
+    classifier_state= Uninitialized
+    next_task_id    = 100
+    next_noop       = 0
+
+    tasks = {}
+    while not killed:
+        # Send noops to keep us alive!
+        if time.time() > next_noop:
+            next_noop = time.time() + 60*2
+            connection.send(srl.NoOpMessageFactory.generate())
+            wait_for_data(connection)
+
+        # Handle any updates from the tasks.
+        while not r.empty():
+            update = r.get()
+            tasks[update[0]]['progress'] = update[1]
+            if update[1] >= 1:
+                tasks[update[0]]['results'] = update[2]
+                if update[2] == None:
+                    classifier_state = Initialized
+
+        # Handle incoming messages.
+        raw_message = wait_for_data(connection)
+        if raw_message:
+            message = srl.InterfaceMessage().decode(raw_message)
+
+            # Handle Builtin messages.
+            if message.get_module() == 'Builtin':
+                if message.get_service() == 'Disconnect':
+                    print('Disconnect received: ' + message['reason'])
+                    break
+                elif message.get_service() == 'Shutdown':
+                    print('Server is shutting down, so will this service.')
+                    break
+
+            # Handle service calls.
+            elif message.get_module() == srl_classifier.ServiceName:
+                if message.get_service() == 'Progress':
+                    print(' * progress')
+                    if message['task-id'] in tasks:
+                        if tasks[message['task-id']]['progress'] < 0:
+                            connection.send(srl_classifier.TaskProgressMessageFactory.generate(
+                                message, 0, 'Still queued.'))
+                        else:
+                            if (tasks[message['task-id']]['progress'] >= 1) and \
+                               (tasks[message['task-id']]['results'] != None):
+                                connection.send(srl_classifier.CheapEventReportResponseFactory.generate(
+                                    message, tasks[message['task-id']]['results']))
+                            else:
+                                connection.send(srl_classifier.TaskProgressMessageFactory.generate(
+                                    message, tasks[message['task-id']]['progress'], 'Started.'))
+                    else:
+                        connection.send(srl.ErrorMessageFactory.generate(
+                            message, 'Unknown task.'))
+
+                elif message.get_service() == 'Init':
+                    print(' * init')
+                    if classifier_state == Uninitialized:
+                        tasks[next_task_id] = {'progress': -1, 'results': None}
+                        t.put([next_task_id, 'init'])
+                        connection.send(srl_classifier.TaskProgressMessageFactory.generate(
+                            message, 0, 'Initialization started.', next_task_id))
+                        next_task_id += 1
+                        classifier_state = Initializing
+                    elif classifier_state == Initializing:
+                        connection.send(srl.ErrorMessageFactory.generate(
+                            message, 'Classifier already initializing.'))
+                    elif classifier_state == Initialized:
+                        connection.send(srl.StatusMessageFactory.generate(
+                            message, 'Classifier is initialized.'))
+                    else:
+                        connection.send(srl.ErrorMessageFactory.generate(
+                            message, 'Unknown classifier state!'))
+
+                elif message.get_service() == 'CheapEventReport':
+                    print(' * report')
+                    if classifier_state != Initialized:
+                        connection.send(srl.ErrorMessageFactory.generate(
+                            message, 'Classifier is not initialized.'))
+                    else:
+                        task = srl_classifier.CheapEventReportRequestFactory.parse(message)
+                        tasks[next_task_id] = {'progress': -1, 'results': None}
+                        t.put([
+                            next_task_id, 'process',
+                            task['target-location'], task['keylist'],
+                            task['analysis-start-date'], task['analysis-end-date']])
+                        connection.send(srl_classifier.TaskProgressMessageFactory.generate(
+                            message, 0, 'Event report request queued.', next_task_id))
+                        next_task_id += 1
+
+                else: print('Unknown service: %s' % message.get_service())
+
+            # Unknown module?
+            else: print('Unknown module: %s' % message.get_module())
+
+    # Killed?
+    if killed:
+        print('Service was killed.')
 
     # Kill all workers.
+    print('Destroying workers...')
     for i in xrange(0, proc_count):
-        q.put(['exit'])
+        t.put(['exit'])
 
     # Join.
     for proc in procs:

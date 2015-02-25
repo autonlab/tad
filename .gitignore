@@ -3,4 +3,5 @@ thirdparty/
 tmp/
 *.csv
 *.txt
+*.pyc
 .syntastic*
