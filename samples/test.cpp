@@ -5,6 +5,7 @@
 #include "srl/TCPInterface.hpp"
 #include "srl/Controller.hpp"
 #include "srl/BuiltinMessageFactory.hpp"
+#include "srl/Log.hpp"
 
 #include "network/Port.hpp"
 
@@ -13,34 +14,14 @@
 #include <csignal>
 #include <cstring>
 
+#include <dirent.h>
+#include <sys/stat.h>
+
 #include <iostream>
 
 using namespace std;
 using namespace al;
-
-class MyService : public srl::CallbackConnection
-{
-    protected:
-        virtual void handle( const std::string raw_message )
-        {
-            srl::InterfaceMessage message;
-            message.decode(raw_message);
-            if (message.get_module() == "MyService")
-            {
-                if (message.get_service() == "serviceA")
-                {
-                    if (message["a"].is_integer() && message["b"].is_integer())
-                    {
-                        srl::InterfaceMessage response(message.get_module(), message.get_service());
-                        response["result"] = message["a"].integer() - message["b"].integer();
-                        response["original-message"] = static_cast<srl::Field>(message.get_wrapper());
-                        send(response.encode());
-                    } else send(srl::ErrorMessageFactory::generate(message, "Integers a and b must be provided."));
-                } else send(srl::ErrorMessageFactory::generate(message, "Service not implemented yet.")); 
-            }
-        }
-
-};
+using srl::Log;
 
 namespace al { namespace platform {
     class SignalHandler
@@ -75,9 +56,38 @@ namespace al { namespace platform {
     volatile int  SignalHandler::last_signal        = 0;
 } }
 
+inline int directory_exists( const char * const name )
+{
+    DIR *dir    = NULL;
+    int exists  = 0;
+
+    if ((dir = opendir(name)) != NULL)
+    {
+        exists = 1;
+        closedir(dir);
+    }
+
+    return exists;
+}
+
+inline int create_directory( const char * const name, const int permissions )
+{
+    return !(mkdir(name, permissions) < 0);
+}
+
 int main( void )
 {
+    if (!directory_exists("logs")) create_directory("logs", 0777);
+
+    srl::Log log;
+    log.append_to_file("logs/server.log");
+    log.append_to_handle(stdout, {Log::Info, Log::Warning, Log::Debug});
+    log.append_to_handle(stderr, {Log::Error});
+
+    log.write(Log::Info, "Starting up server.");
+
     // Register signal handlers.
+    log.write(Log::Info, "  - Registering signal handles.");
     platform::SignalHandler::register_signal(SIGINT);
     platform::SignalHandler::register_signal(SIGABRT);
     platform::SignalHandler::register_signal(SIGQUIT);
@@ -85,39 +95,35 @@ int main( void )
     srl::Controller controller;
 
     // Establish available communication interfaces. Make them unmanaged.
+    log.write(Log::Info, "  - Registering callback interface.");
     srl::CallbackInterface callback_interface(controller);
     controller.register_interface(&callback_interface, false);
 
     // Create an interface for handling TCP connections.
+    log.write(Log::Info, "  - Registering TCP interface.");
     controller.register_interface(new srl::TCPInterface(controller, 12345));
 
     // Start the controller.
+    log.write(Log::Info, "  - Starting controller.");
     controller.start();
-
-    // Create a service connection.
-    MyService service_connection;
-    callback_interface.connect(service_connection);
-
-    // Connect a new service.
-    service_connection.send(srl::RegisterServiceMessageFactory::generate(
-                "MyService", std::vector<string>({"serviceA", "serviceB"})));
 
     concurrent::msleep(100);
 
     // Wait for server to finish.
-    cout << "Waiting for server to close..." << endl;
+    log.write(Log::Info, "  - Waiting for server to close.");
     while (controller.is_running() && !platform::SignalHandler::signal_was_received())
         concurrent::ssleep(1);
 
     // Stopped by signal?
     if (platform::SignalHandler::signal_was_received())
-        cout << "*** Received signal " << strsignal(platform::SignalHandler::get_last_signal()) << endl;
+        log.write(Log::Info, "  - Received signal %s.", strsignal(platform::SignalHandler::get_last_signal()));
 
+    log.write(Log::Info, "  - Stopping controller.");
     if (controller.is_running()) controller.stop();
     controller.join();
 
     // Done.
-    cout << "Done." << endl;
+    log.write(Log::Info, "Server closed.");
 
     return 0;
 }

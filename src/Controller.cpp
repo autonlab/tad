@@ -7,14 +7,14 @@
 #include "srl/BuiltinServiceProvider.hpp"
 #include "concurrent/Time.hpp"
 
-#include <iostream>
-using namespace std;
-
 namespace al { namespace srl
 {
+    const std::string Controller::log_path  = "logs/";
+    const bool Controller::logging          = true;
+
     void Controller::cleanup( void )
     {
-        std::cout << "  - Closing routers..." << std::endl;
+        log.write(Log::Info, "[Controller::Cleanup] - Closing routers.");
         for (int i = 0; i < routers.size(); ++i)
             routers[i]->stop();
         for (int i = 0; i < routers.size(); ++i)
@@ -22,7 +22,8 @@ namespace al { namespace srl
             routers[i]->join();
             delete routers[i];
         }
-        std::cout << "  - Closing providers..." << std::endl;
+
+        log.write(Log::Info, "[Controller::Cleanup] - Closing providers.");
         for (auto iter = providers.begin(); iter != providers.end(); ++iter)
         {
             ServiceProvider * provider = iter->second;
@@ -31,7 +32,8 @@ namespace al { namespace srl
 
             delete iter->second;
         }
-        std::cout << "  - Closing managed comm interfaces..." << std::endl;
+
+        log.write(Log::Info, "[Controller::Cleanup] - Closing managed communication interfaces.");
         for (int i = 0; i < comm_ifs.size(); ++i)
         {
             if (comm_ifs[i].is_managed())
@@ -40,7 +42,8 @@ namespace al { namespace srl
                     delete comm_ifs[i].get_interface();
             }
         }
-        std::cout << "  - Closing connections..." << std::endl;
+
+        log.write(Log::Info, "[Controller::Cleanup] - Closing connections.");
         ConnectionDescriptor * cd;
         while (active_connections.pop(cd));
         for (auto iter = connections.begin(); iter != connections.end(); ++iter)
@@ -48,22 +51,36 @@ namespace al { namespace srl
             iter->second.get_connection()->disconnect();
             delete iter->second.get_connection();
         }
+
+        log.write(Log::Info, "[Controller::Cleanup] Finished.");
     }
 
     void * Controller::run_loop( void )
     {
+        if (is_logging())
+        {
+            log.append_to_file(get_log_path() + "controller.log");
+            log.append_to_handle(stdout, Log::NotErrors);
+            log.append_to_handle(stderr, {Log::Error});
+        }
+
+        log.write(Log::Info, "[Controller] Started.");
+
         // Add the builtin service provider.
+        log.write(Log::Info, "[Controller]   - Adding builtin services.");
         BuiltinServiceProvider * provider = new BuiltinServiceProvider(*this);
         register_provider(provider);
 
         // Start some routers.
-        routers.resize(1);
-        for (int i = 0; i < 1; ++i)
+        log.write(Log::Info, "[Controller]   - Starting %d routers.", router_count);
+        routers.resize(router_count);
+        for (int i = 0; i < router_count; ++i)
         {
-            routers[i] = new Router(*this);
+            routers[i] = new Router(*this, i);
             routers[i]->start();
         }
 
+        log.write(Log::Info, "[Controller] Starting loop.");
         while (!stopped)
         {
             // Loop through connections looking for messages and removing disconnected
@@ -79,7 +96,7 @@ namespace al { namespace srl
                 // If connection was disconnected, destroy it.
                 if (!connection->is_connected())
                 {
-                    cout << " - Connection appears disconnected. Deleting..." << endl;
+                    log.write(Log::Info, "[Controller]   - Found disconnected client. Deleting.");
                     destroy_connection(connection);
                     connections.erase(iter++);
                 }
@@ -87,7 +104,7 @@ namespace al { namespace srl
                 // If the connection is passed its expiration, destroy it.
                 else if (expired && !cd.is_being_processed())
                 {
-                    cout << " - Connection has expired. Deleting..." << endl;
+                    log.write(Log::Info, "[Controller]   - Found expired client. Deleting.");
                     destroy_connection(connection, "Session timed out.");
                     connections.erase(iter++);
                 }
@@ -96,7 +113,7 @@ namespace al { namespace srl
                     // Data is available?
                     if (connection->is_message_available() && !active_connections.is_in_queue(&cd))
                     {
-                        cout << " - Connection has activity, pushing to active queue." << endl;
+                        log.write(Log::Info, "[Controller]   - Found active connection, moving to queue.");
                         if (cd.get_expiration() > 0)
                             cd.set_expiration(concurrent::stime() + connection_timeout);
                         cd.set_processing(true);
@@ -109,7 +126,9 @@ namespace al { namespace srl
             concurrent::msleep(10);
         }
 
-        std::cout << "Stopping controller." << std::endl;
+        log.write(Log::Info, "[Controller] Exiting loop.");
+
+        log.write(Log::Info, "[Controller] Calling cleanup.");
         cleanup();
     }
 } }

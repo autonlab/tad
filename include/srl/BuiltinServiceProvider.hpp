@@ -16,11 +16,23 @@ namespace al { namespace srl
             BuiltinServiceProvider( Controller & controller);
 
         private:
-            void handle_NoOp( const InterfaceMessage & message, Connection * const client );
-            void handle_Shutdown( const InterfaceMessage & message, Connection * const client );
-            void handle_RegisterService( const InterfaceMessage & message, Connection * const client );
+            void handle_NoOp(
+                    const InterfaceMessage & message,
+                    Connection * const client,
+                    Log & log );
+            void handle_Shutdown(
+                    const InterfaceMessage & message,
+                    Connection * const client,
+                    Log & log );
+            void handle_RegisterService(
+                    const InterfaceMessage & message,
+                    Connection * const client,
+                    Log & log );
 
-            virtual void handle_message( const InterfaceMessage & message, Connection * const client );
+            virtual void handle_message(
+                    const InterfaceMessage & message,
+                    Connection * const client,
+                    Log & log );
 
         private:
             Controller & controller;

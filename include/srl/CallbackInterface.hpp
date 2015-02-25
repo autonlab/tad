@@ -8,6 +8,7 @@
 
 #include "srl/CommunicationInterface.hpp"
 #include "srl/CallbackConnection.hpp"
+#include "srl/Log.hpp"
 
 namespace al { namespace srl
 {
@@ -26,6 +27,9 @@ namespace al { namespace srl
              * @param The endpoint to connect to.
              */
             void connect( CallbackConnection & endpoint );
+
+        private:
+            Log log;
     };
 } }
 

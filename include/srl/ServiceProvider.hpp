@@ -15,6 +15,7 @@
 namespace al { namespace srl
 {
     class Controller;
+    class Log;
 
     class ServiceProvider
     {
@@ -25,7 +26,8 @@ namespace al { namespace srl
 
             virtual void handle_message(
                     const InterfaceMessage & message,
-                    Connection * const client );
+                    Connection * const client,
+                    Log & log );
 
             std::string get_name( void ) const { return name; }
             Connection * get_connection( void ) const { return connection; }

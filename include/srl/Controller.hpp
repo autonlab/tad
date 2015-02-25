@@ -15,12 +15,10 @@
 #include "srl/ServiceProvider.hpp"
 #include "srl/Router.hpp"
 #include "srl/BuiltinMessageFactory.hpp"
+#include "srl/Log.hpp"
 
 #include <list>
 #include <map>
-
-#include <iostream>
-using namespace std;
 
 namespace al { namespace srl
 {
@@ -93,7 +91,6 @@ namespace al { namespace srl
              */
             void add_connection( Connection * connection, long expiration = 0 )
             {
-                cout << " - Established new connection." << endl;
                 if (expiration == 0) expiration = concurrent::stime() + connection_timeout;
                 connections.insert(
                         std::pair<int, ConnectionDescriptor>(
@@ -182,6 +179,16 @@ namespace al { namespace srl
              */
             long get_idle_connection_timeout( void ) const { return connection_timeout; }
 
+            /*!
+             * @return The path the the log files.
+             */
+            std::string get_log_path( void ) const { return log_path; }
+
+            /*!
+             * @return True if logging, false otherwise.
+             */
+            bool is_logging( void ) const { return logging; }
+
         protected:
             void cleanup( void );
 
@@ -199,16 +206,19 @@ namespace al { namespace srl
                 // First check if connection belongs to a service provider.
                 std::string provider_name = get_provider_name(connection);
                 if (provider_name != "")
-                {
-                    std::cout << "  *** Removing provider " << provider_name << "!" << endl;
                     unregister_provider(provider_name, reason);
-                }
 
                 // Okay.
                 delete connection;
             }
 
         private:
+            static const std::string                    log_path;
+            static const bool                           logging;
+            Log                                         log;
+
+            static const int                            router_count = 1;
+
             int                                         next_client_id;
             long                                        connection_timeout;
             std::map<int, ConnectionDescriptor>         connections;

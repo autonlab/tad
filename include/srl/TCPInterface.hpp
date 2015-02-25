@@ -9,6 +9,7 @@
 #include "srl/CommunicationInterface.hpp"
 #include "concurrent/Thread.hpp"
 #include "network/TCPPort.hpp"
+#include "srl/Log.hpp"
 
 namespace al { namespace srl
 {
@@ -67,8 +68,8 @@ namespace al { namespace srl
             class Monitor : public concurrent::Thread
             {
                 public:
-                    Monitor( Controller & controller, network::TCPServerSocket & socket ) :
-                        controller(controller), socket(socket) { }
+                    Monitor( Controller & controller, network::TCPServerSocket & socket, Log & log ) :
+                        controller(controller), socket(socket), log(log) { }
 
                 protected:
                     virtual void * run_loop( void );
@@ -76,11 +77,13 @@ namespace al { namespace srl
                 private:
                     Controller & controller;
                     network::TCPServerSocket & socket;
+                    Log & log;
             };
 
         private:
             Monitor monitor;
             network::TCPServerSocket socket;
+            Log log;
     };
 } }
 

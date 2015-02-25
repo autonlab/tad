@@ -7,6 +7,7 @@
 #define __SRL_Router_hpp__
 
 #include <concurrent/Thread.hpp>
+#include "srl/Log.hpp"
 
 namespace al { namespace srl
 {
@@ -23,14 +24,17 @@ namespace al { namespace srl
         public:
             /*!
              * @param controller The parent controller object.
+             * @param id The router ID number.
              */
-            Router( Controller & controller ) : controller(controller) { }
+            Router( Controller & controller, const int id ) : id(id), controller(controller) { }
 
         protected:
             virtual void * run_loop( void );
 
         private:
+            const int id;
             Controller & controller;
+            Log log;
     };
 } }
 

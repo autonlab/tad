@@ -13,9 +13,6 @@
 #include <fcntl.h>
 #endif
 
-#include <iostream>
-using namespace std;
-
 namespace al { namespace network
 {
     bool TCPServerSocket::connect( const std::string service_name )

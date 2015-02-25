@@ -10,6 +10,9 @@
 
 namespace al { namespace srl
 {
-    void ServiceProvider::handle_message( const InterfaceMessage & message, Connection * const client )
+    void ServiceProvider::handle_message(
+            const InterfaceMessage & message,
+            Connection * const client,
+            Log & log )
         { connection->send(message.encode()); }
 } }
