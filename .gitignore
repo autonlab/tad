@@ -3,8 +3,8 @@ tmp/
 env/
 thirdparty/
 dist/
+snapshot/
 MANIFEST
 *.csv
-*.txt
 *.pyc
 .syntastic*
