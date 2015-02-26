@@ -40,6 +40,9 @@ class InterfaceMessage:
     def set_client_id( self, client_id ):
         self.fields['client-id'] = client_id;
 
+    def __contains__( self, i ):
+        return i in self.fields['body']
+
     def __getitem__( self, i ):
         return self.fields['body'][i]
 

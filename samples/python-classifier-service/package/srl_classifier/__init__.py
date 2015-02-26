@@ -10,6 +10,11 @@ class TaskProgressMessageFactory:
         return srl.ProgressMessageFactory.generate(
                 original_message, task_id, progress, status_message)
 
+    @staticmethod
+    def generate_progress_request( task_id ):
+        return srl.ProgressMessageFactory.generate_progress_request(
+                'PyClassifier', 'Progress', task_id)
+
 class InitializeClassifierMessageFactory:
     @staticmethod
     def generate( ):
@@ -61,5 +66,6 @@ class CheapEventReportResponseFactory:
                 original_message.get_client_id())
         message['results'] = results
         for i in xrange(len(message['results'])):
-            message['results'][i][0] = message['results'][i][0].strftime('%m/%d/%Y')
+            if not isinstance(message['results'][i][0], str):
+                message['results'][i][0] = message['results'][i][0].strftime('%m/%d/%Y')
         return message.encode()
