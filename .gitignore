@@ -2,6 +2,8 @@ build/
 tmp/
 env/
 thirdparty/
+dist/
+MANIFEST
 *.csv
 *.txt
 *.pyc
