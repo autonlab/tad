@@ -10,7 +10,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x -fPIC")
 #set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 
 # Build options.
-option(BUILD_SHARED     "Build as a shared library."            ON)
+option(BUILD_SHARED     "Build as a shared library."            OFF)
 option(BUILD_SAMPLES    "Build the C++ sample applications."    ON)
 option(INSTALL_SAMPLES  "Install the sample application"        ON)
 
@@ -28,16 +28,20 @@ else(WIN32)
     set(HEADER_INSTALL_PATH "C:/Program Files/${PROJECT_NAME}/include")
 endif()
 
+# Third party targets.
+add_subdirectory(thirdparty/jsoncpp)
+
 # Library target.
-include_directories(thirdparty/rapidjson/include)
 include_directories(include)
+include_directories(thirdparty/jsoncpp/include)
 file(GLOB_RECURSE LIB_SRCS src/*.cpp)
 if (BUILD_SHARED)
     add_library(${PROJECT_NAME} SHARED ${LIB_SRCS})
 else()
     add_library(${PROJECT_NAME} STATIC ${LIB_SRCS})
 endif()
-target_link_libraries(${PROJECT_NAME} jsoncpp pthread rt)
+add_dependencies(${PROJECT_NAME} jsoncpp_lib_static)
+target_link_libraries(${PROJECT_NAME} jsoncpp_lib_static pthread rt)
 install(TARGETS ${PROJECT_NAME} DESTINATION ${LIB_INSTALL_PATH})
 install(DIRECTORY include/ DESTINATION ${HEADER_INSTALL_PATH})
 
