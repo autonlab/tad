@@ -1,6 +1,7 @@
 build/
 tmp/
 env/
+thirdparty/
 *.csv
 *.txt
 *.pyc
