@@ -12,9 +12,25 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x -fPIC")
 #set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 
 # Build options.
-option(BUILD_SHARED     "Build as a shared library."            OFF)
-option(BUILD_SAMPLES    "Build the C++ sample applications."    ON)
-option(INSTALL_SAMPLES  "Install the sample application"        ON)
+option(BUILD_SHARED     "Build as a shared library."                OFF)
+option(BUILD_SAMPLES    "Build the C++ sample applications."        ON)
+option(BUILD_PYTHON     "Build python library."                     ON)
+option(BUILD_DOCKER     "Builds the docker container (*nix only)"   ON)
+option(INSTALL_SAMPLES  "Install the sample application"            ON)
+
+if (BUILD_PYTHON)
+    find_package(PythonInterp 2.7 REQUIRED)
+endif()
+
+if (BUILD_DOCKER)
+    if (NOT UNIX)
+        message(FATAL_ERROR "The docker container can only be built on a *nix platform.")
+    endif()
+    if (NOT BUILD_PYTHON OR NOT BUILD_SAMPLES)
+        message(FATAL_ERROR "The docker container requires the built python module and service. "
+                            "BUILD_PYTHON and BUILD_SAMPLES should be set.")
+    endif()
+endif()
 
 if (UNIX)
     set(SAMPLE_INSTALL_PATH "/usr/local/bin")
@@ -55,6 +71,10 @@ add_dependencies(${PROJECT_NAME} jsoncpp_lib_static)
 target_link_libraries(${PROJECT_NAME} jsoncpp pthread rt)
 install(TARGETS ${PROJECT_NAME} DESTINATION ${LIB_INSTALL_PATH})
 install(DIRECTORY include/ DESTINATION ${HEADER_INSTALL_PATH})
+
+if (BUILD_PYTHON)
+    add_subdirectory(python)
+endif()
 
 if (BUILD_SAMPLES)
     add_subdirectory(samples)

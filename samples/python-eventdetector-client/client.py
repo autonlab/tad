@@ -1,6 +1,6 @@
-import srl, srl_classifier
+import srl, srl_event_detector
 from pprint import pprint
-import time
+import time, sys
 
 def wait_for_data( connection, max_timeout = 5 ):
     time_waited = 0
@@ -24,7 +24,7 @@ def wait_on_task( message ):
     else: return None
 
     while True:
-        c.send(srl_classifier.TaskProgressMessageFactory.\
+        c.send(srl_event_detector.TaskProgressMessageFactory.\
                 generate_progress_request(task_id))
         r = srl.InterfaceMessage().decode(wait_for_data(c))
         if 'progress' not in r:
@@ -35,12 +35,15 @@ def wait_on_task( message ):
     return r
 
 # Establish a connection to the server.
-print('Connecting...')
-c = srl.TCPConnection('127.0.0.1:12345')
+if len(sys.argv) == 2:
+    port = int(sys.argv[1])
+else: port = 12345
+print('Connecting to port %d...' % port)
+c = srl.TCPConnection('127.0.0.1:%d' % port)
 
-# Tell the PyClassifier service to initialize.
-print('Initializing classifier...')
-c.send(srl_classifier.InitializeClassifierMessageFactory.generate())
+# Tell the PyEventDetector service to initialize.
+print('Initializing event detector...')
+c.send(srl_event_detector.InitializeMessageFactory.generate())
 r = srl.InterfaceMessage().decode(wait_for_data(c))
 pprint(r.fields)
 
@@ -49,7 +52,7 @@ r = wait_on_task(r)
 
 # Run a query.
 print('Getting superbowl query results...')
-c.send(srl_classifier.CheapEventReportRequestFactory.generate(
+c.send(srl_event_detector.CheapEventReportRequestFactory.generate(
     'NORTH_JERSEY_NEW_JERSEY', [], 'Jan/05/2014', 'Mar/02/2014'))
 r = srl.InterfaceMessage().decode(wait_for_data(c))
 pprint(r.fields)

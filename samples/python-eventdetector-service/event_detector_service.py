@@ -1,7 +1,7 @@
 from multiprocessing import Process, Manager, Queue, Lock
 import time
 from event_detector import EventDetector
-import srl, srl_classifier
+import srl, srl_event_detector
 
 def safe_print( l, m ):
     l.acquire()
@@ -71,11 +71,11 @@ if __name__ == '__main__':
     print('Master thread started.')
 
     # Establish connection with server.
-    connection = srl.TCPConnection('127.0.0.1:12345')
+    connection = srl.TCPConnection(':12345')
 
     # Register available services.
     connection.send(srl.RegisterServiceMessageFactory.generate(
-        'PyClassifier', ['Progress', 'Init', 'CheapEventReport']))
+        srl_event_detector.ServiceName, ['Progress', 'Init', 'CheapEventReport']))
     response = wait_for_data(connection, 5)
     if not response: raise Exception('Could not register services with the server!')
 
@@ -104,7 +104,7 @@ if __name__ == '__main__':
     Initializing    = 1
     Initialized     = 2
 
-    classifier_state= Uninitialized
+    state           = Uninitialized
     next_task_id    = 100
     next_noop       = 0
 
@@ -123,7 +123,7 @@ if __name__ == '__main__':
             if update[1] >= 1:
                 tasks[update[0]]['results'] = update[2]
                 if update[2] == None:
-                    classifier_state = Initialized
+                    state = Initialized
 
         # Handle incoming messages.
         raw_message = wait_for_data(connection)
@@ -140,20 +140,20 @@ if __name__ == '__main__':
                     break
 
             # Handle service calls.
-            elif message.get_module() == srl_classifier.ServiceName:
+            elif message.get_module() == srl_event_detector.ServiceName:
                 if message.get_service() == 'Progress':
                     print(' * progress')
                     if message['task-id'] in tasks:
                         if tasks[message['task-id']]['progress'] < 0:
-                            connection.send(srl_classifier.TaskProgressMessageFactory.generate(
+                            connection.send(srl_event_detector.TaskProgressMessageFactory.generate(
                                 message, 0, 'Still queued.'))
                         else:
                             if (tasks[message['task-id']]['progress'] >= 1) and \
                                (tasks[message['task-id']]['results'] != None):
-                                connection.send(srl_classifier.CheapEventReportResponseFactory.generate(
+                                connection.send(srl_event_detector.CheapEventReportResponseFactory.generate(
                                     message, tasks[message['task-id']]['results']))
                             else:
-                                connection.send(srl_classifier.TaskProgressMessageFactory.generate(
+                                connection.send(srl_event_detector.TaskProgressMessageFactory.generate(
                                     message, tasks[message['task-id']]['progress'], 'Started.'))
                     else:
                         connection.send(srl.ErrorMessageFactory.generate(
@@ -161,36 +161,36 @@ if __name__ == '__main__':
 
                 elif message.get_service() == 'Init':
                     print(' * init')
-                    if classifier_state == Uninitialized:
+                    if state == Uninitialized:
                         tasks[next_task_id] = {'progress': -1, 'results': None}
                         t.put([next_task_id, 'init'])
-                        connection.send(srl_classifier.TaskProgressMessageFactory.generate(
+                        connection.send(srl_event_detector.TaskProgressMessageFactory.generate(
                             message, 0, 'Initialization started.', next_task_id))
                         next_task_id += 1
-                        classifier_state = Initializing
-                    elif classifier_state == Initializing:
+                        state = Initializing
+                    elif state == Initializing:
                         connection.send(srl.ErrorMessageFactory.generate(
-                            message, 'Classifier already initializing.'))
-                    elif classifier_state == Initialized:
+                            message, 'Already initializing.'))
+                    elif state == Initialized:
                         connection.send(srl.StatusMessageFactory.generate(
-                            message, 'Classifier is initialized.'))
+                            message, 'Initialized.'))
                     else:
                         connection.send(srl.ErrorMessageFactory.generate(
-                            message, 'Unknown classifier state!'))
+                            message, 'Unknown state!'))
 
                 elif message.get_service() == 'CheapEventReport':
                     print(' * report')
-                    if classifier_state != Initialized:
+                    if state != Initialized:
                         connection.send(srl.ErrorMessageFactory.generate(
-                            message, 'Classifier is not initialized.'))
+                            message, 'Not yet initialized.'))
                     else:
-                        task = srl_classifier.CheapEventReportRequestFactory.parse(message)
+                        task = srl_event_detector.CheapEventReportRequestFactory.parse(message)
                         tasks[next_task_id] = {'progress': -1, 'results': None}
                         t.put([
                             next_task_id, 'process',
                             task['target-location'], task['keylist'],
                             task['analysis-start-date'], task['analysis-end-date']])
-                        connection.send(srl_classifier.TaskProgressMessageFactory.generate(
+                        connection.send(srl_event_detector.TaskProgressMessageFactory.generate(
                             message, 0, 'Event report request queued.', next_task_id))
                         next_task_id += 1
 

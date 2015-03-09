@@ -1,0 +1,36 @@
+127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
+::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
+10.1.90.10 xd-puppet.xdata.data-tactics-corp.com xd-puppet
+10.1.94.51 memex-nn1 memex-nn1.xdata.data-tactics-corp.com
+10.1.94.52 memex-nn2 memex-nn2.xdata.data-tactics-corp.com
+10.1.94.53 memex-rm memex-rm.xdata.data-tactics-corp.com
+10.1.94.54 memex-utils memex-utils.xdata.data-tactics-corp.com
+10.1.94.55 memex-sqoop memex-sqoop.xdata.data-tactics-corp.com
+10.1.94.56 memex-hive-master memex-hive-master.xdata.data-tactics-corp.com memex-impala-master memex-impala-master.xdata.data-tactics-corp.com
+10.1.94.57 memex-spark-master memex-spark-master.xdata.data-tactics-corp.com memex-hbase-master memex-hbase-master.xdata.data-tactics-corp.com
+10.1.94.58 memex-storm-master memex-storm-master.xdata.data-tactics-corp.com memex-kafka-master memex-kafka-master.xdata.data-tactics-corp.com
+10.1.94.63 memex-accumulo memex-accumulo.xdata.data-tactics-corp.com
+10.1.94.135 r102u25 r102u25.xdata.data-tactics-corp.com memex-zk01 memex-zk01.xdata.data-tactics-corp.com
+10.1.94.136 r102u26 r102u26.xdata.data-tactics-corp.com memex-zk02 memex-zk02.xdata.data-tactics-corp.com
+10.1.94.137 r102u27 r102u27.xdata.data-tactics-corp.com memex-zk03 memex-zk03.xdata.data-tactics-corp.com
+10.1.94.61 memex-zk04 memex-zk04.xdata.data-tactics-corp.com
+10.1.94.62 memex-zk05 memex-zk05.xdata.data-tactics-corp.com
+10.1.94.138 r102u28 r102u28.xdata.data-tactics-corp.com
+10.1.94.139 r102u29 r102u29.xdata.data-tactics-corp.com
+10.1.94.140 r102u30 r102u30.xdata.data-tactics-corp.com
+10.1.94.141 r102u31 r102u31.xdata.data-tactics-corp.com
+10.1.94.142 r102u32 r102u32.xdata.data-tactics-corp.com
+10.1.94.143 r102u33 r102u33.xdata.data-tactics-corp.com
+10.1.94.144 r103u20 r103u20.xdata.data-tactics-corp.com
+10.1.94.145 r103u21 r103u21.xdata.data-tactics-corp.com
+10.1.94.146 r103u22 r103u22.xdata.data-tactics-corp.com
+10.1.94.147 r103u23 r103u23.xdata.data-tactics-corp.com
+10.1.94.148 r103u24 r103u24.xdata.data-tactics-corp.com
+10.1.94.149 r103u25 r103u25.xdata.data-tactics-corp.com
+10.1.94.150 r103u26 r103u26.xdata.data-tactics-corp.com
+10.1.94.151 r103u27 r103u27.xdata.data-tactics-corp.com
+10.1.94.152 r103u28 r103u28.xdata.data-tactics-corp.com
+10.1.94.153 r103u29 r103u29.xdata.data-tactics-corp.com
+10.1.94.154 r103u30 r103u30.xdata.data-tactics-corp.com
+10.1.94.155 r103u31 r103u31.xdata.data-tactics-corp.com
+10.1.94.156 r103u32 r103u32.xdata.data-tactics-corp.com

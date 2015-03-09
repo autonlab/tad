@@ -8,3 +8,4 @@ MANIFEST
 *.csv
 *.pyc
 .syntastic*
+samples/docker-service/service/

@@ -1,7 +1,7 @@
 import srl
 from datetime import datetime
 
-ServiceName = 'PyClassifier'
+ServiceName = 'PyEventDetector'
 
 class TaskProgressMessageFactory:
     @staticmethod
@@ -13,9 +13,9 @@ class TaskProgressMessageFactory:
     @staticmethod
     def generate_progress_request( task_id ):
         return srl.ProgressMessageFactory.generate_progress_request(
-                'PyClassifier', 'Progress', task_id)
+                ServiceName, 'Progress', task_id)
 
-class InitializeClassifierMessageFactory:
+class InitializeMessageFactory:
     @staticmethod
     def generate( ):
         message = srl.InterfaceMessage(ServiceName, 'Init')

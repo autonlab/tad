@@ -1,1 +1,7 @@
 add_subdirectory(cpp-server)
+if (BUILD_PYTHON)
+    add_subdirectory(python-eventdetector-service)
+endif()
+if (BUILD_DOCKER)
+    add_subdirectory(docker-service)
+endif()
