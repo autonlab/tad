@@ -1,0 +1,5 @@
+#!/bin/bash
+
+sleep 5
+cd /service
+python ./eventdetector/event_detector_service.py &> logs/event-detector.out &

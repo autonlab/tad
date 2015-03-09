@@ -1,0 +1,5 @@
+#!/bin/bash
+
+cd /service
+./run-event-detector &
+./cpp-server

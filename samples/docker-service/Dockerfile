@@ -41,6 +41,7 @@ EXPOSE 12345
 
 # Copy service applications.
 COPY service /service
+COPY service-scripts/. /service/
 
 # Install the python libraries.
 RUN pip install /service/SRL/dist/*.tar.gz
