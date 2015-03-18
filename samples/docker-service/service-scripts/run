@@ -1,8 +1,10 @@
 #!/bin/bash
 
+set -x
 cd /tmp/config && ./copy-files.sh memex
-hiveserver2 &
-pause 2
 cd /service
+./run-hive-server &
+sleep 2
 ./run-event-detector &
 ./cpp-server
+set +x

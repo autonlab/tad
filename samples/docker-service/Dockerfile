@@ -27,6 +27,7 @@ ENV PATH $PATH:$HADOOP_HOME/bin:$HIVE_HOME/bin
 #------------ Install development software --------------#
 RUN apt-get update && apt-get install -y \
         python python-dev python-pip python-numpy
+RUN apt-get install libsasl2-dev
 RUN pip install fisher pyhs2
 
 #------------- MEMEX Configuration --------------#

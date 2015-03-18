@@ -2,4 +2,8 @@
 
 sleep 5
 cd /service
-python ./eventdetector/event_detector_service.py &> logs/event-detector.out &
+if [ -f "logs/event-detector.log" ]; then
+    echo "" &>> logs/event-detector.log
+fi
+echo `date` &>> logs/event-detector.log
+python ./eventdetector/event_detector_service.py &>> logs/event-detector.log &

@@ -10,11 +10,13 @@ class EventDetector:
         data = []
         try:
             with pyhs2.connect( \
-                    host='localhost', port=10000, user='hive',
-                    password='hive', database='default') as con:
+                    host='localhost', port=10000, authMechanism='PLAIN',
+                    user='hive', password='hive', database='default') as con:
                 with con.cursor() as cur:
-                    start_ts    = calendar.timegm(start_date)
-                    end_ts      = calendar.timegm(end_date)
+                    start_ts    = calendar.timegm(
+                            datetime.datetime.combine(start_date, datetime.datetime.min.time()).timetuple())
+                    end_ts      = calendar.timegm(
+                            datetime.datetime.combine(end_date, datetime.datetime.min.time()).timetuple())
                     fields      = 'location,state,date,age,size,cluster,keywords'
                     table       = 'memex_ht_ads_clustered'
                     query       = 'select %s from %s where timestamp >= %d and timestamp <= %d' \
@@ -22,15 +24,15 @@ class EventDetector:
                     print('Querying hive: %s' % query)
                     cur.execute(query)
                     data = cur.fetchall()
-        except:
+        except Exception as e:
             print('ERROR: Could not query hive.')
+            print(str(e))
             return []
 
         return data
 
     @staticmethod
     def cheap_event_report( \
-            path,
             target_location, keylist, analysis_date_start, analysis_date_end,
             startdate = None, enddate = None, cur_window = 7, ref_window = 91,
             lag = 0, tailed = 'upper', US = False, Canada = False):
@@ -47,6 +49,7 @@ class EventDetector:
         if data == []:
             print('WARNING: No query results returned.')
             return []
+        print('Found %d data elements.' % len(data))
 
         print('Filtering data...')
         adlist = []
@@ -77,7 +80,7 @@ class EventDetector:
                     break
 
             # Convert date.
-            dt = datetime.datetime.strptime(fields[2], "%b/%d/%Y")
+            dt = datetime.datetime.strptime(fields[2], "%b/%d/%Y").date()
 
             mycluster = fields[5]
             adlistadd([mycluster, dt, keyword] + fields[0:2] + fields[3:4])
