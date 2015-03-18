@@ -16,30 +16,16 @@ def worker_process( i, t, r, s, pl ):
         task                = t.get()
 
         path                = s[0]
-        additional_phones   = s[1]
-        phone2cluster       = s[2]
-
         iters               += 1
+
         if task == ['exit']:
             break
-
-        elif task[1] == 'init':
-            r.put([task[0], 0])
-
-            additional_phones, phone2cluster = \
-                    EventDetector.create_phone_clusters(path)
-
-            s[1] = additional_phones
-            s[2] = phone2cluster
-
-            r.put([task[0], 1, None])
 
         elif task[1] == 'process':
             r.put([task[0], 0])
 
             result = EventDetector.cheap_event_report(
-                    path, additional_phones, phone2cluster,
-                    task[2], task[3], task[4], task[5])
+                    path, task[2], task[3], task[4], task[5])
 
             r.put([task[0], 1, result])
             safe_print(pl, '  - Worker %d: Finished processing task ''%s''' % (i, task[1]))
@@ -75,7 +61,7 @@ if __name__ == '__main__':
 
     # Register available services.
     connection.send(srl.RegisterServiceMessageFactory.generate(
-        srl_event_detector.ServiceName, ['Progress', 'Init', 'CheapEventReport']))
+        srl_event_detector.ServiceName, ['Progress', 'CheapEventReport']))
     response = wait_for_data(connection, 5)
     if not response: raise Exception('Could not register services with the server!')
 
@@ -88,8 +74,6 @@ if __name__ == '__main__':
     r = Queue()             # Result queue
     s = manager.list()
     s.append(path)          # Path
-    s.append({})            # additional_phones
-    s.append({})            # phone2cluster
     pl = Lock()
 
     # Initialize child worker pool.
@@ -104,7 +88,7 @@ if __name__ == '__main__':
     Initializing    = 1
     Initialized     = 2
 
-    state           = Uninitialized
+    state           = Initialized
     next_task_id    = 100
     next_noop       = 0
 
@@ -158,25 +142,6 @@ if __name__ == '__main__':
                     else:
                         connection.send(srl.ErrorMessageFactory.generate(
                             message, 'Unknown task.'))
-
-                elif message.get_service() == 'Init':
-                    print(' * init')
-                    if state == Uninitialized:
-                        tasks[next_task_id] = {'progress': -1, 'results': None}
-                        t.put([next_task_id, 'init'])
-                        connection.send(srl_event_detector.TaskProgressMessageFactory.generate(
-                            message, 0, 'Initialization started.', next_task_id))
-                        next_task_id += 1
-                        state = Initializing
-                    elif state == Initializing:
-                        connection.send(srl.ErrorMessageFactory.generate(
-                            message, 'Already initializing.'))
-                    elif state == Initialized:
-                        connection.send(srl.StatusMessageFactory.generate(
-                            message, 'Initialized.'))
-                    else:
-                        connection.send(srl.ErrorMessageFactory.generate(
-                            message, 'Unknown state!'))
 
                 elif message.get_service() == 'CheapEventReport':
                     print(' * report')

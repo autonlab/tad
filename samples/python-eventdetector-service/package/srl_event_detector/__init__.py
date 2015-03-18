@@ -15,12 +15,6 @@ class TaskProgressMessageFactory:
         return srl.ProgressMessageFactory.generate_progress_request(
                 ServiceName, 'Progress', task_id)
 
-class InitializeMessageFactory:
-    @staticmethod
-    def generate( ):
-        message = srl.InterfaceMessage(ServiceName, 'Init')
-        return message.encode()
-
 class CheapEventReportRequestFactory:
     @staticmethod
     def generate( target_location, keylist, analysis_start_date, analysis_end_date ):

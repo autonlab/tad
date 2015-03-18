@@ -27,7 +27,7 @@ ENV PATH $PATH:$HADOOP_HOME/bin:$HIVE_HOME/bin
 #------------ Install development software --------------#
 RUN apt-get update && apt-get install -y \
         python python-dev python-pip python-numpy
-RUN pip install fisher
+RUN pip install fisher pyhs2
 
 #------------- MEMEX Configuration --------------#
 COPY guest-cfg/. /tmp/config/

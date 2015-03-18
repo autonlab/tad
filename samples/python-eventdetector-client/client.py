@@ -41,15 +41,6 @@ else: port = 12345
 print('Connecting to port %d...' % port)
 c = srl.TCPConnection('127.0.0.1:%d' % port)
 
-# Tell the PyEventDetector service to initialize.
-print('Initializing event detector...')
-c.send(srl_event_detector.InitializeMessageFactory.generate())
-r = srl.InterfaceMessage().decode(wait_for_data(c))
-pprint(r.fields)
-
-# Wait until initialization is complete.
-r = wait_on_task(r)
-
 # Run a query.
 print('Getting superbowl query results...')
 c.send(srl_event_detector.CheapEventReportRequestFactory.generate(

@@ -1,54 +1,36 @@
 import datetime
+import calendar
 import operator
 from fisher import pvalue
+import pyhs2
 
 class EventDetector:
     @staticmethod
-    def create_phone_clusters( path ):
-        additional_phones = {}
-        phone2cluster     = {}
-        cluster2phone     = {}
+    def get_data( start_date, end_date ):
+        data = []
+        try:
+            with pyhs2.connect( \
+                    host='localhost', port=10000, user='hive',
+                    password='hive', database='default') as con:
+                with con.cursor() as cur:
+                    start_ts    = calendar.timegm(start_date)
+                    end_ts      = calendar.timegm(end_date)
+                    fields      = 'location,state,date,age,size,cluster,keywords'
+                    table       = 'memex_ht_ads_clustered'
+                    query       = 'select %s from %s where timestamp >= %d and timestamp <= %d' \
+                            % (fields, table, start_ts, end_ts)
+                    print('Querying hive: %s' % query)
+                    cur.execute(query)
+                    data = cur.fetchall()
+        except:
+            print('ERROR: Could not query hive.')
+            return []
 
-        with open(path+"phone.txt","r") as f:
-            additional_phones = {}
-            for line in f:
-                fields = line.rstrip().split(',')
-                additional_phones[int(fields[0])] = fields[1].split(':')
-
-        with open(path+"tcwi.csv","r") as f:
-            line = f.readline() # header
-            for i, line in enumerate(f):
-                clusid=-1
-                line = line.rstrip().split(',')
-                phones = ['-'.join(line[5:8])]
-                phones = [p for p in phones if p[:3]!='000' and p[:4]!='None']
-                if i in additional_phones: phones.extend(additional_phones[i])
-                if len(phones)==0: phones=['p-'+str(i)]
-                for p in phones:
-                    if p in phone2cluster:
-                            clusid=phone2cluster[p]
-                            break
-                if clusid<0:
-                    clusid=len(cluster2phone)
-                    for p in phones: phone2cluster[p] = clusid
-                    cluster2phone[clusid]=set(phones)
-                else:
-                    for p in phones:
-                        if p not in phone2cluster:
-                            phone2cluster[p]=clusid
-                            cluster2phone[clusid].add(p)
-                        elif phone2cluster[p]!=clusid:
-                            oldid = phone2cluster[p]
-                            for p2 in cluster2phone[oldid]: phone2cluster[p2]=clusid
-                            cluster2phone[clusid] = \
-                                cluster2phone[clusid].union(cluster2phone[oldid])
-                            cluster2phone[oldid]=set([])
-
-        return additional_phones, phone2cluster
+        return data
 
     @staticmethod
     def cheap_event_report( \
-            path, additional_phones, phone2cluster,
+            path,
             target_location, keylist, analysis_date_start, analysis_date_end,
             startdate = None, enddate = None, cur_window = 7, ref_window = 91,
             lag = 0, tailed = 'upper', US = False, Canada = False):
@@ -60,60 +42,47 @@ class EventDetector:
 
         intext_keylist      = ['_'+x+'_' for x in keylist]
 
-        Month2Num = \
-        {
-            'Jan': 1, 'Feb': 2 ,'Mar': 3, 'Apr': 4,
-            'May': 5, 'Jun': 6, 'Jul': 7, 'Aug': 8,
-            'Sep': 9, 'Oct':10, 'Nov':11, 'Dec':12
-        }
-        checkstart = True
+        print('Querying for data...')
+        data = EventDetector.get_data(startdate, enddate)
+        if data == []:
+            print('WARNING: No query results returned.')
+            return []
+
+        print('Filtering data...')
         adlist = []
         adlistadd = adlist.append
 
-        #TODO create sets of locations to filter by regions
-        #if US:
-        #elif Canada:
+        # Columns:
+        #  0     1     2     3    4       5        6
+        # loc, state, date, age, size, cluster, content
 
-        with open(path+"tcwi.csv","r") as f1, open(path+"complete.txt","r") as f2:
-            line = f1.readline() # header
-            for i,line in enumerate(f1):
-                line2 = f2.readline().rstrip()
+        for fields in data:
+            #look for keywords
+            keyword = 0
+            content = fields[6]
+            for j,x in enumerate(intext_keylist):
+                #check in text
+                if x in content:
+                    keyword = 1
+                    break
 
-                #date format like so: Feb/04/2015
-                fields = line.rstrip().split(',')
-                dt = datetime.date(int(fields[2][7:11]), Month2Num[fields[2][0:3]], int(fields[2][4:6]))
+                #check at start of line
+                if content[:len(x)-1] == x[1:]:
+                    keyword = 1
+                    break
 
-                if checkstart:
-                    if dt == startdate: checkstart=False
-                    else: continue
-                else:
-                    if dt > enddate: break
+                #check at end of line
+                if content[-len(x)+1:] == x[:-1]:
+                    keyword = 1
+                    break
 
-                keyword = 0
-                #look for keywords
-                for j,x in enumerate(intext_keylist):
-                    #check in text
-                    if x in line2:
-                        keyword = 1
-                        break
+            # Convert date.
+            dt = datetime.datetime.strptime(fields[2], "%b/%d/%Y")
 
-                    #check at start of line
-                    if line2[:len(x)-1] == x[1:]:
-                        keyword = 1
-                        break
+            mycluster = fields[5]
+            adlistadd([mycluster, dt, keyword] + fields[0:2] + fields[3:4])
 
-                    #check at end of line
-                    if line2[-len(x)+1:] == x[:-1]:
-                        keyword = 1
-                        break
-
-                phone = '-'.join(fields[5:8])
-                if phone[:3] =='000' or phone[:4]=='None':
-                    if i in additional_phones:
-                        phone = additional_phones[i][0]
-                    else: phone = 'p-'+str(i)
-                mycluster = phone2cluster[phone]
-                adlistadd([mycluster, dt, keyword] + fields[0:2] + fields[3:4])
+        print('Sorting...')
 
         #sort
         adlist.sort(key = operator.itemgetter(0,1))
@@ -164,6 +133,8 @@ class EventDetector:
                 new_count+=1
 
             newlistappend([ntt] + row[1:])
+
+        print('Working...')
 
         #new-to-town is in newlist, which is list of lists. Fields in everey list in newlist are
         #NewToTown,date,keyword,location,state,age

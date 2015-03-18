@@ -1,5 +1,8 @@
 #!/bin/bash
 
+cd /tmp/config && ./copy-files.sh memex
+hiveserver2 &
+pause 2
 cd /service
 ./run-event-detector &
 ./cpp-server
