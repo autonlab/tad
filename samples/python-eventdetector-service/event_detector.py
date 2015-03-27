@@ -3,10 +3,20 @@ import calendar
 import operator
 from fisher import pvalue
 import pyhs2
+import re
 
 class EventDetector:
     @staticmethod
-    def get_data( start_date, end_date ):
+    def get_data( start_date, end_date, locations = None ):
+        # If locations provided, verify contents and build query string.
+        location_query = ''
+        if locations != None:
+            if re.search('[^\w_,]', locations) != None: return []
+            locations = ','.join("'{0}'".format(l.strip()) for l in locations.split(',') if l.strip() != '')
+            if locations != '':
+                location_query = 'and location in ({0})'.format(locations)
+
+        # Find data.
         data = []
         try:
             with pyhs2.connect( \
@@ -19,8 +29,8 @@ class EventDetector:
                             datetime.datetime.combine(end_date, datetime.datetime.min.time()).timetuple())
                     fields      = 'location,state,date,age,size,cluster,keywords'
                     table       = 'memex_ht_ads_clustered'
-                    query       = 'select %s from %s where timestamp >= %d and timestamp <= %d' \
-                            % (fields, table, start_ts, end_ts)
+                    query       = 'select %s from %s where timestamp >= %d and timestamp <= %d %s' \
+                            % (fields, table, start_ts, end_ts, location_query)
                     print('Querying hive: %s' % query)
                     cur.execute(query)
                     data = cur.fetchall()
@@ -34,6 +44,7 @@ class EventDetector:
     @staticmethod
     def cheap_event_report( \
             target_location, keylist, analysis_date_start, analysis_date_end,
+            baseline_location = '',
             startdate = None, enddate = None, cur_window = 7, ref_window = 91,
             lag = 0, tailed = 'upper', US = False, Canada = False):
         if startdate is None:
@@ -44,8 +55,12 @@ class EventDetector:
 
         intext_keylist      = ['_'+x+'_' for x in keylist]
 
+        query_locations = None
+        if baseline_location != '':
+            query_locations = '{0},{1}'.format(baseline_location, target_location)
+
         print('Querying for data...')
-        data = EventDetector.get_data(startdate, enddate)
+        data = EventDetector.get_data(startdate, enddate, query_locations)
         if data == []:
             print('WARNING: No query results returned.')
             return []
@@ -150,6 +165,7 @@ class EventDetector:
                 countlist.append([cur_date] + counts)
                 cur_date=ad[1]
                 counts = [0]*16
+
             if ad[3] in target_location:
                 counts[0] += 1 #target overall
                 if ad[2]: counts[8] += 1
@@ -162,7 +178,8 @@ class EventDetector:
                 elif ad[0] == 2: # first-appearance
                     counts[6] += 1
                     if ad[2]: counts[14] += 1
-            else:
+
+            if (baseline_location == '') or (ad[3] in baseline_location):
                 counts[1] += 1 #baseline overall
                 if ad[2]: counts[9] += 1
                 if ad[0]==0: # local

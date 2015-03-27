@@ -110,8 +110,8 @@ if __name__ == '__main__':
                     state = Initialized
 
         # Handle incoming messages.
-        raw_message = wait_for_data(connection)
-        if raw_message:
+        raw_messages = wait_for_data(connection)
+        for raw_message in srl.extract_json_blocks(raw_messages):
             message = srl.InterfaceMessage().decode(raw_message)
 
             # Handle Builtin messages.

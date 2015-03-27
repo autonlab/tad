@@ -1,5 +1,35 @@
+# coding: utf-8
 import json
 import socket
+
+# This will naïvely attempt to segment a message into blocks representing JSON
+# structures. In the event two or more messages are received from the buffer
+# at once, this allows processing them separetely (otherwise the JSON parser
+# will complain).
+def extract_json_blocks( message ):
+    # Should be a string.
+    if not isinstance(message, str):
+        raise Exception('message should be of type str!')
+
+    # Need at least two characters for a JSON block. {}
+    if len(message) < 2:
+        return []
+
+    # Extract the blocks.
+    blocks = []
+    opened = 0
+    bs     = 0
+    for ci in xrange(len(message)):
+        if message[ci] == '{':
+            opened += 1
+            if opened == 1: bs = ci
+        elif message[ci] == '}':
+            opened -= 1
+            if opened == 0:
+                blocks.append(message[bs:ci + 1])
+            elif opened < 0: opened = 0
+
+    return blocks
 
 class InterfaceMessage:
     def __init__( self, module = '', service = '', client_id = -1 ):
