@@ -32,7 +32,7 @@ namespace al { namespace srl
         if (controller.is_logging())
         {
             char buffer[50];
-            snprintf(buffer, 20, "if_tcp_port_%d.log", port);
+            snprintf(buffer, 50, "if_tcp_port_%d.log", port);
 
             log.append_to_file(controller.get_log_path() + buffer);
             log.append_to_handle(stdout, Log::NotErrors);

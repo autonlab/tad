@@ -237,6 +237,33 @@ namespace al { namespace srl
         private:
             GenericMessage wrapper;
     };
+
+    inline std::vector<std::string> extract_message_blocks( std::string message )
+    {
+        // Need at least two characters for a JSON block. {}
+        if (message.size() < 2) return std::vector<std::string>();
+
+        // Extract the blocks.
+        std::vector<std::string> blocks;
+        int opened  = 0;
+        int bs      = 0;
+        for (int ci = 0; ci < message.size(); ++ci)
+        {
+            if (message[ci] == '{')
+            {
+                opened += 1;
+                if (opened == 1) bs = ci;
+            }
+            else if (message[ci] == '}')
+            {
+                opened -= 1;
+                if (opened == 0) blocks.push_back(message.substr(bs, ci - bs + 1));
+                else if (opened < 0) opened = 0;
+            }
+        }
+
+        return blocks;
+    }
 } }
 
 #endif

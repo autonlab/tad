@@ -21,8 +21,7 @@ class CheapEventReportRequestFactory:
     def generate( \
             target_location, keylist, analysis_start_date, analysis_end_date,
             baseline_location = '',
-            cur_window = 7, ref_window = 91, lag = 0, tailed = 'lower',
-            send_notification = False):
+            cur_window = 7, ref_window = 91, lag = 0, tailed = 'lower'):
         if not isinstance(target_location, str):
             raise Exception('target_location should be a string!')
         if not isinstance(keylist, (list, tuple)):

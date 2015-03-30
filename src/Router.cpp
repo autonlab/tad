@@ -41,73 +41,77 @@ namespace al { namespace srl
                 std::string raw_message;
                 while (!stopped && connection->receive(raw_message))
                 {
-                    // Parse message.
-                    InterfaceMessage message;
-                    if (message.decode(raw_message))
+                    std::vector<std::string> blocks = extract_message_blocks(raw_message);
+                    for (int i = 0; i < blocks.size(); ++i)
                     {
-                        // Is this going to a specific client?
-                        if (message.get_client_id() > -1)
+                        // Parse messages.
+                        InterfaceMessage message;
+                        if (message.decode(blocks[i]))
                         {
-                            log.write(
-                                    Log::Info,
-                                    "[Router %d]     - Response (%s, %s): Forwarding to client <%d>.",
-                                    id,
-                                    message.get_module().c_str(),
-                                    message.get_service().c_str(),
-                                    message.get_client_id());
-
-                            Controller::ConnectionDescriptor * dest_cd =
-                                controller.get_connection(message.get_client_id());
-                            if (dest_cd)
+                            // Is this going to a specific client?
+                            if (message.get_client_id() > -1)
                             {
-                                if (dest_cd->get_connection() && dest_cd->get_connection()->is_connected())
-                                    dest_cd->get_connection()->send(raw_message);
-                                else log.write(Log::Error,
-                                            "[Router %d]     - Client seems disconnected.", id);
-                            } else log.write(Log::Error,
-                                    "[Router %d]     - Client does not exist.", id);
-                        }
+                                log.write(
+                                        Log::Info,
+                                        "[Router %d]     - Response (%s, %s): Forwarding to client <%d>.",
+                                        id,
+                                        message.get_module().c_str(),
+                                        message.get_service().c_str(),
+                                        message.get_client_id());
 
-                        // Find the service provider and forward the message.
-                        else
-                        {
-                            log.write(
-                                    Log::Info,
-                                    "[Router %d]     - Request (%s, %s): Forwarding to provider.",
-                                    id,
-                                    message.get_module().c_str(),
-                                    message.get_service().c_str());
-
-                            ServiceProvider * provider = controller.get_provider(message.get_module());
-                            if (provider)
-                            {
-                                if (provider->is_service_available(message.get_service()))
+                                Controller::ConnectionDescriptor * dest_cd =
+                                    controller.get_connection(message.get_client_id());
+                                if (dest_cd)
                                 {
-                                    message.set_client_id(cd->get_id());
-                                    provider->handle_message(message, connection, log);
+                                    if (dest_cd->get_connection() && dest_cd->get_connection()->is_connected())
+                                        dest_cd->get_connection()->send(raw_message);
+                                    else log.write(Log::Error,
+                                            "[Router %d]     - Client seems disconnected.", id);
+                                } else log.write(Log::Error,
+                                        "[Router %d]     - Client does not exist.", id);
+                            }
+
+                            // Find the service provider and forward the message.
+                            else
+                            {
+                                log.write(
+                                        Log::Info,
+                                        "[Router %d]     - Request (%s, %s): Forwarding to provider.",
+                                        id,
+                                        message.get_module().c_str(),
+                                        message.get_service().c_str());
+
+                                ServiceProvider * provider = controller.get_provider(message.get_module());
+                                if (provider)
+                                {
+                                    if (provider->is_service_available(message.get_service()))
+                                    {
+                                        message.set_client_id(cd->get_id());
+                                        provider->handle_message(message, connection, log);
+                                    }
+                                    else
+                                    {
+                                        connection->send(ErrorMessageFactory::generate(
+                                                    message, "Invalid service"));
+                                        log.write(Log::Error, "[Router %d]     - Invalid service request.", id);
+                                    }
                                 }
                                 else
                                 {
                                     connection->send(ErrorMessageFactory::generate(
-                                            message, "Invalid service"));
-                                    log.write(Log::Error, "[Router %d]     - Invalid service request.", id);
+                                                message, "Unregistered provider"));
+                                    log.write(Log::Error, "[Router %d]     - Invalid module.", id);
                                 }
                             }
-                            else
-                            {
-                                connection->send(ErrorMessageFactory::generate(
-                                        message, "Unregistered provider"));
-                                log.write(Log::Error, "[Router %d]     - Invalid module.", id);
-                            }
                         }
-                    }
-                    else
-                    {
-                        InterfaceMessage invalid_message("NA", "NA");
-                        invalid_message["raw-message"] = raw_message;
-                        connection->send(ErrorMessageFactory::generate(
-                                invalid_message, message.get_last_error()));
-                        log.write(Log::Error, "[Router %d]     - Message parse error.", id);
+                        else
+                        {
+                            InterfaceMessage invalid_message("NA", "NA");
+                            invalid_message["raw-message"] = raw_message;
+                            connection->send(ErrorMessageFactory::generate(
+                                        invalid_message, message.get_last_error()));
+                            log.write(Log::Error, "[Router %d]     - Message parse error.", id);
+                        }
                     }
                 }
 

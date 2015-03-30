@@ -14,8 +14,6 @@ def worker_process( i, t, r, s, pl ):
     iters = 0
     while True:
         task                = t.get()
-
-        path                = s[0]
         iters               += 1
 
         if task == ['exit']:
@@ -24,8 +22,18 @@ def worker_process( i, t, r, s, pl ):
         elif task[1] == 'process':
             r.put([task[0], 0])
 
-            result = EventDetector.cheap_event_report(
-                    path, task[2], task[3], task[4], task[5])
+            try:
+                msg = task[2]
+                result = EventDetector.cheap_event_report(
+                        msg['target-location'], msg['keylist'],
+                        msg['analysis-start-date'], msg['analysis-end-date'],
+                        msg['baseline-location'],
+                        cur_window  = msg['current-window'],
+                        ref_window  = msg['reference-window'],
+                        lag         = msg['lag'],
+                        tailed      = msg['tailed'])
+            except Exception as e:
+                result = 'Exception occurred running event report.\n%s' % str(e)
 
             r.put([task[0], 1, result])
             safe_print(pl, '  - Worker %d: Finished processing task ''%s''' % (i, task[1]))
@@ -134,8 +142,12 @@ if __name__ == '__main__':
                         else:
                             if (tasks[message['task-id']]['progress'] >= 1) and \
                                (tasks[message['task-id']]['results'] != None):
-                                connection.send(srl_event_detector.CheapEventReportResponseFactory.generate(
-                                    message, tasks[message['task-id']]['results']))
+                                if isinstance(tasks[message['task-id']]['results'], str):
+                                    connection.send(srl.ErrorMessageFactory.generate(
+                                        message, tasks[message['task-id']]['results']))
+                                else:
+                                    connection.send(srl_event_detector.CheapEventReportResponseFactory.generate(
+                                        message, tasks[message['task-id']]['results']))
                             else:
                                 connection.send(srl_event_detector.TaskProgressMessageFactory.generate(
                                     message, tasks[message['task-id']]['progress'], 'Started.'))
@@ -149,20 +161,28 @@ if __name__ == '__main__':
                         connection.send(srl.ErrorMessageFactory.generate(
                             message, 'Not yet initialized.'))
                     else:
-                        task = srl_event_detector.CheapEventReportRequestFactory.parse(message)
-                        tasks[next_task_id] = {'progress': -1, 'results': None}
-                        t.put([
-                            next_task_id, 'process',
-                            task['target-location'], task['keylist'],
-                            task['analysis-start-date'], task['analysis-end-date']])
-                        connection.send(srl_event_detector.TaskProgressMessageFactory.generate(
-                            message, 0, 'Event report request queued.', next_task_id))
-                        next_task_id += 1
+                        try:
+                            task = srl_event_detector.CheapEventReportRequestFactory.parse(message)
+                            tasks[next_task_id] = {'progress': -1, 'results': None}
+                            t.put([next_task_id, 'process', task])
+                            connection.send(srl_event_detector.TaskProgressMessageFactory.generate(
+                                message, 0, 'Event report request queued.', next_task_id))
+                            next_task_id += 1
+                        except:
+                            print('Error: Unable to parse CheapEventReport request!')
+                            connection.send(srl.ErrorMessageFactory.generate(
+                                message, 'Unable to parse request.'))
 
-                else: print('Unknown service: %s' % message.get_service())
+                else:
+                    print('Unknown service: %s' % message.get_service())
+                    connection.send(srl.ErrorMessageFactory.generate(
+                        message, 'Unknown service %s' % message.get_service()))
 
             # Unknown module?
-            else: print('Unknown module: %s' % message.get_module())
+            else:
+                print('Unknown module: %s' % message.get_module())
+                connection.send(srl.ErrorMessageFactory.generate(
+                    message, 'Unknown module: %s' % message.get_module()))
 
     # Killed?
     if killed:
