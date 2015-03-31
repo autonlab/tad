@@ -1,4 +1,0 @@
-#!/bin/bash
-
-./copy-files.sh
-docker build -t="eventdetector" .

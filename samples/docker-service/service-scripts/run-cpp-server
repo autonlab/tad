@@ -1,4 +1,0 @@
-#!/bin/bash
-
-cd /service
-./cpp-server
