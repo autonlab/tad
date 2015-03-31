@@ -1,0 +1,9 @@
+#!/bin/bash
+
+sleep 5
+cd /service
+if [ -f "logs/tad.log" ]; then
+    echo "" &>> logs/tad.log
+fi
+echo `date` &>> logs/tad.log
+python ./tad/service.py &>> logs/tad.log &
