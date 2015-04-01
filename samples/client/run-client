@@ -12,7 +12,7 @@ else
     . env/bin/activate
 fi
 
-export PORT=`docker inspect eventdetector | grep -n HostPort | awk '{print $3}' | sed 's/\"//g'`
+export PORT=`docker inspect autonlab-tad | grep -n HostPort | awk '{print $3}' | sed 's/\"//g'`
 if [[ ! -n "$PORT" ]]; then
     echo "No port detected. The default 12345 will be used. (This will only work if the server is running on the host.)"
 fi

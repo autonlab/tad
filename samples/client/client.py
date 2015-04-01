@@ -45,7 +45,7 @@ c = srl.TCPConnection('127.0.0.1:%d' % port)
 # Run a query.
 print('Getting superbowl query results...')
 c.send(srl_event_detector.CheapEventReportRequestFactory.generate(
-    'NORTH_JERSEY_NEW_JERSEY', [], 'Jan/05/2014', 'Mar/02/2014', baseline_location='NEW_YORK_NEW_YORK'))
+    'NORTH_JERSEY_NEW_JERSEY', [], 'Jan/05/2014', 'Mar/02/2014', baseline_location='NEW_YORK_NEW_YORK', data_source='flatfile'))
 r = srl.InterfaceMessage().decode(wait_for_data(c))
 pprint(r.fields)
 

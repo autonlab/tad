@@ -9,3 +9,4 @@ MANIFEST
 *.pyc
 .syntastic*
 samples/docker-service/service/
+service/snapshot

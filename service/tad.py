@@ -8,7 +8,7 @@ def safe_print( l, m ):
     print(m)
     l.release()
 
-def worker_process( i, t, r, s, pl ):
+def worker_process( i, t, r, pl ):
     safe_print(pl, '  - Worker process %d started.' % i)
 
     iters = 0
@@ -31,7 +31,8 @@ def worker_process( i, t, r, s, pl ):
                         cur_window  = msg['current-window'],
                         ref_window  = msg['reference-window'],
                         lag         = msg['lag'],
-                        tailed      = msg['tailed'])
+                        tailed      = msg['tailed'],
+                        data_source = msg['data-source'])
             except Exception as e:
                 result = 'Exception occurred running event report.\n%s' % str(e)
 
@@ -76,19 +77,15 @@ if __name__ == '__main__':
     manager = Manager()
 
     # Initialize shared objects.
-    path = 'snapshot/'
-
     t = Queue()             # Task queue
     r = Queue()             # Result queue
-    s = manager.list()
-    s.append(path)          # Path
     pl = Lock()
 
     # Initialize child worker pool.
     proc_count = 2
     procs = [None]*proc_count;
     for i in xrange(0, proc_count):
-        procs[i] = Process(target=worker_process, args=(i, t, r, s, pl))
+        procs[i] = Process(target=worker_process, args=(i, t, r, pl))
         procs[i].start()
 
     # Wait for service requests.
@@ -126,9 +123,11 @@ if __name__ == '__main__':
             if message.get_module() == 'Builtin':
                 if message.get_service() == 'Disconnect':
                     print('Disconnect received: ' + message['reason'])
+                    killed = True
                     break
                 elif message.get_service() == 'Shutdown':
                     print('Server is shutting down, so will this service.')
+                    killed = True
                     break
 
             # Handle service calls.

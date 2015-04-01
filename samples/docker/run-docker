@@ -3,7 +3,7 @@
 entrypoint=""
 mounts=""
 
-if [[ $# -eq 1 && "$1" -eq "-h" ]]; then
+if [[ $# -eq 1 ]] && [[ "$1" == "-h" ]]; then
     echo "Usage:                                                Entrypoint:"
     echo "  run-docker                                          /service/run"
     echo "  run-docker <entry_point>                            <entry_point>"
@@ -25,5 +25,5 @@ else
         mounts="-v `readlink -f $1`:/service/logs -v `readlink -f $2`:/service/snapshot:ro"
     fi
 
-    docker run -ti --rm --name "autonlab/tad" $mounts $entrypoint -P eventdetector
+    docker run -ti --rm --name "autonlab-tad" $mounts $entrypoint -P autonlab/tad
 fi

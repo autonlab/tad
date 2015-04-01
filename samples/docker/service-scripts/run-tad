@@ -2,8 +2,15 @@
 
 sleep 5
 cd /service
-if [ -f "logs/tad.log" ]; then
-    echo "" &>> logs/tad.log
+log='logs/tad.log'
+
+if [ -d "logs" ]; then
+    if [ -f "$log" ]; then
+        echo "" &>> $log
+    fi
+else
+    log='/dev/stdout'
 fi
-echo `date` &>> logs/tad.log
-python ./tad/service.py &>> logs/tad.log &
+
+echo `date` &>> $log
+python ./tad/tad.py &>> $log &

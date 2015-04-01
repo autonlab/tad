@@ -29,6 +29,7 @@ RUN apt-get update && apt-get install -y \
         python python-dev python-pip python-numpy \
         build-essential cmake git
 RUN apt-get install libsasl2-dev
+RUN apt-get install libboost1.54-dev
 RUN pip install fisher pyhs2
 
 #------------- MEMEX Configuration --------------#
@@ -37,21 +38,22 @@ RUN cd /tmp/config && ./copy-files.sh memex
 
 ########### MODIFY BELOW THIS ##############
 #------------- Pull software --------------#
-RUN mkdir -p /service/build && cd /service/build
+RUN mkdir -p /service/build
+WORKDIR /service/build
 RUN git clone https://github.com/autonlab/srl.git
 RUN git clone https://github.com/autonlab/tad.git
 
 # Build and install SRL library and server.
-RUN mkdir -p srl/build && cd srl/build
-RUN cmake .. && make install
-RUN pip install ../python/SRL/dist/*.tar.gz
+RUN mkdir -p srl/build && cd srl/build && cmake .. && make install
+RUN pip install /service/build/srl/python/SRL/dist/*.tar.gz
 
 # Build and install TAD library.
-RUN cd /service/build/tad/service
-RUN python setup.py sdist && pip install dist/*.tar.gz
+RUN cd /service/build/tad/service/package && python setup.py sdist && pip install dist/*.tar.gz
 RUN ln -s /service/build/tad/service /service/tad
 
 #------------- Service Configuration --------------#
+WORKDIR /
+
 # Expose the service port.
 EXPOSE 12345
 

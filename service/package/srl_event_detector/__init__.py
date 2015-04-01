@@ -2,7 +2,7 @@ import srl
 import re
 from datetime import datetime
 
-ServiceName = 'PyEventDetector'
+ServiceName = 'CMU-TemporalAnomalyDetector'
 
 class TaskProgressMessageFactory:
     @staticmethod
@@ -21,7 +21,8 @@ class CheapEventReportRequestFactory:
     def generate( \
             target_location, keylist, analysis_start_date, analysis_end_date,
             baseline_location = '',
-            cur_window = 7, ref_window = 91, lag = 0, tailed = 'lower'):
+            cur_window = 7, ref_window = 91, lag = 0, tailed = 'lower',
+            data_source = 'hive'):
         if not isinstance(target_location, str):
             raise Exception('target_location should be a string!')
         if not isinstance(keylist, (list, tuple)):
@@ -43,6 +44,7 @@ class CheapEventReportRequestFactory:
         message['reference-window']     = ref_window
         message['lag']                  = lag
         message['tailed']               = tailed
+        message['data-source']          = data_source
         return message.encode()
 
     @staticmethod
@@ -61,6 +63,7 @@ class CheapEventReportRequestFactory:
             'reference-window'      : int(message['reference-window']),
             'lag'                   : int(message['lag']),
             'tailed'                : message['tailed'].lower(),
+            'data-source'           : message['data-source']
         }
 
         # Dates should be in order and not the same.
@@ -77,7 +80,11 @@ class CheapEventReportRequestFactory:
 
         # tailed must be valid.
         if request['tailed'] not in ['lower', 'upper', 'two']:
-            raise Exception('tailed invalid ("%s" not in set [lower, upper, two]' % request['tailed'])
+            raise Exception('tailed invalid ("%s" not in set [lower, upper, two])' % request['tailed'])
+
+        # data-source must be valid.
+        if request['data-source'] not in ['hive', 'flatfile']:
+            raise Exception('data-source invalid ("%s" not in set [hive, flatfile])' % request['data-source'])
 
         # Make sure the locations contain no illegal characters.
         if re.search('[^\w_,]', ','.join([request['target-location'], request['baseline-location']])) != None:

@@ -7,7 +7,7 @@ import re
 
 class EventDetector:
     @staticmethod
-    def get_data( start_date, end_date, locations = None ):
+    def get_data_hive( start_date, end_date, locations = None ):
         # If locations provided, verify contents and build query string.
         location_query = ''
         if locations != None:
@@ -42,11 +42,59 @@ class EventDetector:
         return data
 
     @staticmethod
+    def get_data_flatfile( start_date, end_date, locations = None ):
+        data = []
+        try:
+            with open('snapshot/records.csv', 'r') as f:
+                for row in f:
+                    # From
+                    #  0      1       2      3    4    5      6       7        8
+                    # id  location  state  date  age  size  phone  cluster  content
+                    #
+                    # To
+                    #     0       1      2    3    4       5        6
+                    # location  state  date  age  size  cluster  content
+
+                    fields = row.split(',')
+
+                    # Check location.
+                    if (locations != None) and (fields[1] not in locations):
+                        continue
+
+                    # Check date.
+                    row_date = datetime.datetime.strptime(fields[3], '%b/%d/%Y').date()
+                    if (row_date < start_date) or (row_date > end_date):
+                        continue
+
+                    # Add row.
+                    data.append(fields[1:6] + fields[7:])
+
+        except Exception as e:
+            print('ERROR: Could not query flatfile.')
+            print(str(e))
+            return []
+
+        return data
+
+    @staticmethod
+    def get_data( start_date, end_date, locations = None, data_source = 'flatfile' ):
+        get_data_f = None
+        if data_source == 'hive':
+            get_data_f = EventDetector.get_data_hive
+        elif data_source == 'flatfile':
+            get_data_f = EventDetector.get_data_flatfile
+        else:
+            raise Exception('Invalid data source: %s' % data_source)
+
+        return get_data_f(start_date, end_date, locations)
+
+    @staticmethod
     def cheap_event_report( \
             target_location, keylist, analysis_date_start, analysis_date_end,
             baseline_location = '',
             startdate = None, enddate = None, cur_window = 7, ref_window = 91,
-            lag = 0, tailed = 'upper', US = False, Canada = False):
+            lag = 0, tailed = 'upper', US = False, Canada = False,
+            data_source = 'flatfile'):
         if startdate is None:
             startdate = analysis_date_start - datetime.timedelta(days = cur_window + lag + ref_window - 1)
 
@@ -60,7 +108,7 @@ class EventDetector:
             query_locations = '{0},{1}'.format(baseline_location, target_location)
 
         print('Querying for data...')
-        data = EventDetector.get_data(startdate, enddate, query_locations)
+        data = EventDetector.get_data(startdate, enddate, query_locations, data_source)
         if data == []:
             print('WARNING: No query results returned.')
             return []
