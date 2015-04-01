@@ -256,6 +256,42 @@ town, and first. So that looks like this:
 p-value (no keywords; overall), p-value (no keywords; local), ...
 ```
 
+Configuring input: flatfiles
+----------------------------
+
+A CSV text file may be used to provide a data source from which to query.
+It must be named `records.csv` and reside in a `snapshot` directory relative
+to the starting point of the TAD service. If launching the Python script
+directly, the directory should be in your calling directory. If using the
+docker container, the data directory must be sent while configuring the
+service.
+
+The CSV file contains nine columns of data:
+
+Index   | Name      | Description
+:------:|-----------|------------
+0       | ID        | The record's ID number
+1       | Location  | String representing the location of the ad (e.g. Colorado Springs)
+2       | State     | String representing the U.S. state of the ad (e.g. Colorado)
+3       | Date      | The date represented in %b/%d/%Y format, e.g. Mar/14/2015
+4       | Age       | The age of the victim or UNSPECIFIED
+5       | Size      | The size of the victim or UNSPECIFIED
+6       | Phone     | The victim's phone number or a unique placeholder (e.g. p-ID#)
+7       | Cluster   | The cluster ID of the ad
+8       | Content   | The add keywords
+
+Configuring input: Hive
+-----------------------
+
+For configuring hive on your system, refer to hive documentation. The only
+requirement is that the table `memex_ht_ads_clustered` exists which has the same
+fields as the CSV file mentioned in the previous section.
+
+For configuring hive on the docker image, modify the files inside the directory
+`samples/docker/guest-cfg/memex` which make the configurations when the container
+is started. Again, for specifics on configuring the hive server, see official
+Hive documentation.
+
 License
 -------
 
