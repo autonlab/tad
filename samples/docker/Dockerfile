@@ -5,7 +5,7 @@
 #
 # Note: As of 2015/03/05 this is Ubuntu 14.04.
 FROM dockerfile/java:oracle-java7
-MAINTAINER Kyle Miller <mille856@andrew.cmu.edu>
+MAINTAINER Anthony Wertz <awertz@cmu.edu>
 
 #------------ Hadoop and Hive configuration ---------------#
 # Grab the right Hadoop and Hive versions, then install.
