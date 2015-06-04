@@ -1,200 +1,163 @@
-from multiprocessing import Process, Manager, Queue, Lock
-import time
+from celery import Celery
+from flask import Flask
+from flask_restful import Resource, Api, abort, reqparse
+from datetime import datetime
 from event_detector import EventDetector
-import srl, srl_event_detector
 
-def safe_print( l, m ):
-    l.acquire()
-    print(m)
-    l.release()
+class ListServices(Resource):
+    handle      = 'list'
+    description = 'List available services.'
+    uris        = [x.format(handle) for x in ['/{}']]
+    result      = None
 
-def worker_process( i, t, r, pl ):
-    safe_print(pl, '  - Worker process %d started.' % i)
+    def get( self ):
+        if self.result == None:
+            global services
+            self.result = []
+            for service in services:
+                self.result.append({'handle': service.handle, 'description': service.description})
 
-    iters = 0
-    while True:
-        task                = t.get()
-        iters               += 1
+        return {'services': self.result}
 
-        if task == ['exit']:
-            break
+class EventReportService(Resource):
+    handle      = 'event-report'
+    description = 'Create an event report for a given query.'
+    uris        = [x.format(handle) for x in ['/{}', '/{}/<string:task_id>']]
 
-        elif task[1] == 'process':
-            r.put([task[0], 0])
+    def get( self, task_id = None ):
+        global tasks, res_q, task_update_lock
 
-            try:
-                msg = task[2]
-                result = EventDetector.cheap_event_report(
-                        msg['target-location'], msg['keylist'],
-                        msg['analysis-start-date'], msg['analysis-end-date'],
-                        msg['baseline-location'],
-                        cur_window  = msg['current-window'],
-                        ref_window  = msg['reference-window'],
-                        lag         = msg['lag'],
-                        tailed      = msg['tailed'],
-                        data_source = msg['data-source'])
-            except Exception as e:
-                result = 'Exception occurred running event report.\n%s' % str(e)
+        if task_id == None:
+            abort(400)
 
-            r.put([task[0], 1, result])
-            safe_print(pl, '  - Worker %d: Finished processing task ''%s''' % (i, task[1]))
+        if task_id not in tasks:
+            return {'error': 'Task {} not found'.format(task_id)}, 400
 
-        else:
-            safe_print(pl, '  - Worker %d: Error, unknown task ''%s''' % (i, task[0]))
+        # If task is not yet complete, update fields.
+        if not tasks[task_id]['finished']:
+            task = worker.AsyncResult(task_id)
+            if task.state == 'PENDING':
+                pass
+            elif task.state == 'FAILURE':
+                tasks[task_id]['finished'] = True
+                tasks[task_id]['status'] = 'Failed'
+                tasks[task_id]['error'] = task.info
+            else:
+                if task.ready(): print(task.result)
+                if task.info == None:
+                    return {'error': str(task)}
 
-    safe_print(pl, '  - Worker process %d exited.' % i)
+                for field in ['status', 'progress', 'error', 'result']:
+                    if field in task.info:
+                        tasks[task_id][field] = task.info.get(field, tasks[task_id][field])
 
-def wait_for_data( connection, max_timeout = 1 ):
-    time_waited = 0
-    while time_waited < max_timeout:
-        try:
-            response = connection.receive()
-        except:
-            return ''
+        return {
+            'task-id' : task_id,
+            'status'  : tasks[task_id]['status'],
+            'progress': tasks[task_id]['progress'],
+            'error'   : tasks[task_id]['error'],
+            'result'  : tasks[task_id]['result'] }
 
-        if not response:
-            time.sleep(0.1)
-            time_waited += 0.1
-        else: break
+    def post( self, task_id = None ):
+        global tasks
 
-    return response
+        if task_id != None:
+            abort(400)
+
+        # Parse query request.
+        parser = reqparse.RequestParser(bundle_errors = True)
+        parser.add_argument('target-location'       , required=True)
+        parser.add_argument('baseline-location'     , required=True)
+        parser.add_argument('keylist'               , required=False,
+                type=str, default=[], action='append')
+        parser.add_argument('analysis-start-date'   , required=True)
+        parser.add_argument('analysis-end-date'     , required=True)
+        parser.add_argument('current-window'        , required=False,
+                type=int, default=7)
+        parser.add_argument('reference-window'      , required=False,
+                type=int, default=91)
+        parser.add_argument('lag'                   , required=False,
+                type=int, default=0)
+        parser.add_argument('tailed'                , required=False,
+                type=str, default='upper', choices=['lower', 'upper', 'two'])
+        parser.add_argument('data-source'           , required=False)
+        args = parser.parse_args(strict = True)
+
+        if args['lag'] < 0: return {'error': 'lag cannot be negative'}, 400
+        if args['current-window'] < 1: return {'error': 'current-window size must be postive'}, 400
+        if args['reference-window'] < 1: return {'error': 'reference-window size must be postive'}, 400
+
+        pargs = {}
+
+        try: pargs['analysis-start-date'] = datetime.strptime(args['analysis-start-date'], '%Y/%m/%d').date()
+        except: return {'error': 'analysis-start-date is invalid: {}'.format(args['analysis-start-date'])}, 400
+
+        try: pargs['analysis-end-date'] = datetime.strptime(args['analysis-end-date'], '%Y/%m/%d').date()
+        except: return {'error': 'analysis-end-date is invalid: {}'.format(args['analysis-end-date'])}, 400
+
+        if pargs['analysis-start-date'] >= pargs['analysis-end-date']:
+            return {'error': 'analysis-end-date must come after analysis-start-date'}, 400
+
+        task = {
+            'args'      : args,
+            'pargs'     : pargs,
+            'progress'  : 0,
+            'status'    : 'Not started',
+            'error'     : None,
+            'finished'  : False,
+            'result'    : None }
+
+        ctask = worker.apply_async(args=[task])
+        tasks[ctask.id] = task
+
+        return {'task-id': ctask.id}
+
+# Start
+app = Flask(__name__)
+app.config['CELERY_BROKER_URL'] = 'amqp://guest:guest@localhost:5672//'
+app.config['CELERY_RESULT_BACKEND'] = 'amqp://guest:guest@localhost:5672//'
+
+celery = Celery(app.name, broker=app.config['CELERY_BROKER_URL'])
+celery.conf.update(app.config)
+
+api = Api(app)
+
+@celery.task(bind=True)
+def worker( self, task ):
+    self.update_state(state='PROGRESS', meta={'status': 'In progress'})
+    try:
+        args  = task['args']
+        pargs = task['pargs']
+        result = EventDetector.cheap_event_report(
+                args['target-location'], args['keylist'],
+                pargs['analysis-start-date'], pargs['analysis-end-date'],
+                args['baseline-location'],
+                cur_window  = args['current-window'],
+                ref_window  = args['reference-window'],
+                lag         = args['lag'],
+                tailed      = args['tailed'],
+                data_source = 'flatfile') #args['data-source'])
+    except Exception as e:
+        return {
+            'finished': True,
+            'status': 'Failed',
+            'error': 'Exception occurred running event report: {}'.format(str(e))
+        }
+
+    # Return.
+    for i in xrange(len(result)):
+        result[i][0] = result[i][0].strftime('%Y/%m/%d')
+    return {'progress': 100, 'status': 'Finished', 'finished': True, 'result': result}
 
 if __name__ == '__main__':
-    global killed
-    killed = False
-
-    print('Master thread started.')
-
-    # Establish connection with server.
-    connection = srl.TCPConnection(':12345')
-
-    # Register available services.
-    connection.send(srl.RegisterServiceMessageFactory.generate(
-        srl_event_detector.ServiceName, ['Progress', 'CheapEventReport']))
-    response = wait_for_data(connection, 5)
-    if not response: raise Exception('Could not register services with the server!')
-
-    manager = Manager()
-
-    # Initialize shared objects.
-    t = Queue()             # Task queue
-    r = Queue()             # Result queue
-    pl = Lock()
-
-    # Initialize child worker pool.
-    proc_count = 2
-    procs = [None]*proc_count;
-    for i in xrange(0, proc_count):
-        procs[i] = Process(target=worker_process, args=(i, t, r, pl))
-        procs[i].start()
-
-    # Wait for service requests.
-    Uninitialized   = 0
-    Initializing    = 1
-    Initialized     = 2
-
-    state           = Initialized
-    next_task_id    = 100
-    next_noop       = 0
-
     tasks = {}
-    while not killed:
-        # Send noops to keep us alive!
-        if time.time() > next_noop:
-            next_noop = time.time() + 60*2
-            connection.send(srl.NoOpMessageFactory.generate())
-            wait_for_data(connection)
 
-        # Handle any updates from the tasks.
-        while not r.empty():
-            update = r.get()
-            tasks[update[0]]['progress'] = update[1]
-            if update[1] >= 1:
-                tasks[update[0]]['results'] = update[2]
-                if update[2] == None:
-                    state = Initialized
+    services = [ListServices, EventReportService]
+    for service in services:
+        api.add_resource(service, *service.uris)
 
-        # Handle incoming messages.
-        raw_messages = wait_for_data(connection)
-        for raw_message in srl.extract_json_blocks(raw_messages):
-            message = srl.InterfaceMessage().decode(raw_message)
+    try:
+        app.run(debug = True)
+    except KeyboardInterrupt:
+        print('Done.')
 
-            # Handle Builtin messages.
-            if message.get_module() == 'Builtin':
-                if message.get_service() == 'Disconnect':
-                    print('Disconnect received: ' + message['reason'])
-                    killed = True
-                    break
-                elif message.get_service() == 'Shutdown':
-                    print('Server is shutting down, so will this service.')
-                    killed = True
-                    break
-
-            # Handle service calls.
-            elif message.get_module() == srl_event_detector.ServiceName:
-                if message.get_service() == 'Progress':
-                    print(' * progress')
-                    if message['task-id'] in tasks:
-                        if tasks[message['task-id']]['progress'] < 0:
-                            connection.send(srl_event_detector.TaskProgressMessageFactory.generate(
-                                message, 0, 'Still queued.'))
-                        else:
-                            if (tasks[message['task-id']]['progress'] >= 1) and \
-                               (tasks[message['task-id']]['results'] != None):
-                                if isinstance(tasks[message['task-id']]['results'], str):
-                                    connection.send(srl.ErrorMessageFactory.generate(
-                                        message, tasks[message['task-id']]['results']))
-                                else:
-                                    connection.send(srl_event_detector.CheapEventReportResponseFactory.generate(
-                                        message, tasks[message['task-id']]['results']))
-                            else:
-                                connection.send(srl_event_detector.TaskProgressMessageFactory.generate(
-                                    message, tasks[message['task-id']]['progress'], 'Started.'))
-                    else:
-                        connection.send(srl.ErrorMessageFactory.generate(
-                            message, 'Unknown task.'))
-
-                elif message.get_service() == 'CheapEventReport':
-                    print(' * report')
-                    if state != Initialized:
-                        connection.send(srl.ErrorMessageFactory.generate(
-                            message, 'Not yet initialized.'))
-                    else:
-                        try:
-                            task = srl_event_detector.CheapEventReportRequestFactory.parse(message)
-                            tasks[next_task_id] = {'progress': -1, 'results': None}
-                            t.put([next_task_id, 'process', task])
-                            connection.send(srl_event_detector.TaskProgressMessageFactory.generate(
-                                message, 0, 'Event report request queued.', next_task_id))
-                            next_task_id += 1
-                        except:
-                            print('Error: Unable to parse CheapEventReport request!')
-                            connection.send(srl.ErrorMessageFactory.generate(
-                                message, 'Unable to parse request.'))
-
-                else:
-                    print('Unknown service: %s' % message.get_service())
-                    connection.send(srl.ErrorMessageFactory.generate(
-                        message, 'Unknown service %s' % message.get_service()))
-
-            # Unknown module?
-            else:
-                print('Unknown module: %s' % message.get_module())
-                connection.send(srl.ErrorMessageFactory.generate(
-                    message, 'Unknown module: %s' % message.get_module()))
-
-    # Killed?
-    if killed:
-        print('Service was killed.')
-
-    # Kill all workers.
-    print('Destroying workers...')
-    for i in xrange(0, proc_count):
-        t.put(['exit'])
-
-    # Join.
-    for proc in procs:
-        proc.join()
-
-    # Done.
-    print('Master thread finished.')
