@@ -43,7 +43,6 @@ class EventReportService(Resource):
                 tasks[task_id]['status'] = 'Failed'
                 tasks[task_id]['error'] = task.info
             else:
-                if task.ready(): print(task.result)
                 if task.info == None:
                     return {'error': str(task)}
 
@@ -67,7 +66,8 @@ class EventReportService(Resource):
         # Parse query request.
         parser = reqparse.RequestParser(bundle_errors = True)
         parser.add_argument('target-location'       , required=True)
-        parser.add_argument('baseline-location'     , required=True)
+        parser.add_argument('baseline-location'     , required=False,
+                default='')
         parser.add_argument('keylist'               , required=False,
                 type=str, default=[], action='append')
         parser.add_argument('analysis-start-date'   , required=True)
@@ -157,7 +157,7 @@ if __name__ == '__main__':
         api.add_resource(service, *service.uris)
 
     try:
-        app.run(debug = True)
+        app.run(debug = False)
     except KeyboardInterrupt:
-        print('Done.')
+        pass
 
