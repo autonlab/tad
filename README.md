@@ -1,10 +1,13 @@
 Temporal Anomaly Detector (TAD)
 ===============================
 
-Version 1.0.0  
+Version 1.0  
 Kyle Miller - mille856@cmu.edu  
 Anthony Wertz - awertz@cmu.edu  
 Carnegie Mellon University - Auton Lab
+
+**NOTE** This readme is valid for v1.0 of the software, not necessarily for the
+current repository revision!
 
 Description
 -----------
