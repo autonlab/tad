@@ -1,6 +1,6 @@
 from celery import Celery
 from flask import Flask
-from flask_restful import Resource, Api, abort, reqparse
+from flask_restful import Resource, Api, reqparse
 from datetime import datetime
 from event_detector import EventDetector
 
@@ -28,7 +28,7 @@ class EventReportService(Resource):
         global tasks, res_q, task_update_lock
 
         if task_id == None:
-            abort(400)
+            return {'error': 'Task ID must be set for GET'}, 400
 
         if task_id not in tasks:
             return {'error': 'Task {} not found'.format(task_id)}, 400
@@ -61,7 +61,7 @@ class EventReportService(Resource):
         global tasks
 
         if task_id != None:
-            abort(400)
+            return {'error': 'Task ID should not be sent in POST'}, 400
 
         # Parse query request.
         parser = reqparse.RequestParser(bundle_errors = True)
