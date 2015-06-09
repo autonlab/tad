@@ -171,7 +171,7 @@ if __name__ == '__main__':
         api.add_resource(service, *service.uris)
 
     try:
-        app.run(debug = args.debug)
+        app.run(host = '0.0.0.0', debug = args.debug)
     except KeyboardInterrupt:
         pass
 
