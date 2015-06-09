@@ -4,18 +4,21 @@
 # utilization of cached steps.
 #
 # Note: As of 2015/03/05 this is Ubuntu 14.04.
-FROM tianon/ubuntu-core:14.04
+FROM dockerfile/java:oracle-java7
 MAINTAINER Anthony Wertz <awertz@cmu.edu>
 
 #------------ Install development software --------------#
-RUN apt-get update && apt-get install -y \
-        python python-pip python-numpy git
-RUN apt-get install celery rabbitmq-server
+RUN apt-get update
+RUN apt-get install -y python python-dev python-pip python-numpy git curl
+RUN apt-get install -y rabbitmq-server
+RUN pip install celery
 RUN pip install fisher elasticsearch
+RUN pip install flask flask_restful
 
 #------------- Pull software --------------#
 RUN mkdir -p /service/build
 WORKDIR /service/build
+RUN lsb_release -a
 RUN git clone https://github.com/autonlab/tad.git
 
 # Build and install TAD library.

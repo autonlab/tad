@@ -1,7 +1,8 @@
 #!/bin/bash
 
-set -x
-cd /service
-./tad/start_worker &
-./tad/start_service
-set +x
+export C_FORCE_ROOT="true"
+rabbitmq-server -detached
+sleep 2
+cd /service/tad
+./start_worker &
+./start_service

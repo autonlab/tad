@@ -1,19 +1,11 @@
 #!/bin/bash
 
-# If the virtual environment doesn't already exist, build it and install
-# the necessary packages. This assumes python, pip, numpy, and fisher are
-# already available.
-if [[ ! -d env ]]; then
-    virtualenv env
-    . env/bin/activate
-    pip install ../../python/SRL/dist/*.tar.gz
-    pip install ../python-eventdetector-service/package/dist/*.tar.gz
-else
-    . env/bin/activate
-fi
-
+set -x
 export PORT=`docker inspect autonlab-tad | grep -n HostPort | awk '{print $3}' | sed 's/\"//g'`
 if [[ ! -n "$PORT" ]]; then
-    echo "No port detected. The default 12345 will be used. (This will only work if the server is running on the host.)"
+    echo "No port detected. The default 5200 will be used. (This will only work if the server is running on the host.)"
+    export PORT=5200
 fi
-python client.py $PORT
+tok_id=`curl -XPOST localhost:$PORT/event-report -d "target-location=Colorado Springs;Colorado;United States" -d "baseline-location=;Colorado;United States" -d "analysis-start-date=2014/01/05" -d "analysis-end-date=2014/02/05" -d "stratify=false" | sed 's/{"task-id": "//' | sed 's/"}//'`
+watch -n 3 curl localhost:$PORT/event-report/$tok_id
+set +x

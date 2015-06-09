@@ -10,3 +10,6 @@ MANIFEST
 .syntastic*
 samples/docker-service/service/
 service/snapshot
+config/tad.cfg
+service/config
+service/dbg_superbowl

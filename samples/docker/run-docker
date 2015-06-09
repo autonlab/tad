@@ -7,15 +7,23 @@ if [[ $# -eq 1 ]] && [[ "$1" == "-h" ]]; then
     echo "Usage:                                                Entrypoint:"
     echo "  run-docker                                          /service/run"
     echo "  run-docker <entry_point>                            <entry_point>"
+    echo "  run-docker <log_dir> <config_dir>                   /service/run"
+    echo "  run-docker <log_dir> <config_dir> <entry_point>     <entry_point>"
     exit
 fi
 
-if [[ $# -gt 1 ]]; then
+if [[ $# -gt 3 ]]; then
     echo "Too many parameters."
 else
     if [[ $# -eq 1 ]]; then
         entrypoint="--entrypoint $1"
+    elif [[ $# -eq 3 ]]; then
+        entrypoint="--entrypoint $3"
     fi
 
-    docker run -ti --rm --name "autonlab-tad" $entrypoint -P autonlab/tad
+    if [[ $# -gt 1 ]]; then
+        mounts="-v `readlink -f $1`:/service/tad/logs -v `readlink -f $2`:/service/tad/config:ro"
+    fi
+
+    docker run -ti --rm --name "autonlab-tad" $mounts $entrypoint -P autonlab/tad
 fi

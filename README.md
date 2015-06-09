@@ -1,13 +1,13 @@
 Temporal Anomaly Detector (TAD)
 ===============================
 
-Version 1.0  
+Version 1.1  
 Kyle Miller - mille856@cmu.edu  
 Anthony Wertz - awertz@cmu.edu  
 Carnegie Mellon University - Auton Lab
 
-**NOTE** This readme is valid for v1.0 of the software, not necessarily for the
-current repository revision!
+**NOTE** This readme is valid for the version of the software specified at the
+top of this readme, not necessarily for the current repository revision!
 
 Description
 -----------
@@ -20,8 +20,7 @@ Building
 
 The service has two main components that can be built. First, there is the service
 itself which can run stand-alone. Second, a docker image can be built (and there
-is a read-made image on Dockerhub) to contain the service and the SRL server
-application (required for use).
+is a ready-made image on Dockerhub) to contain the service and all required services.
 
 To build the Python `pip` package requred for the service, move to the `service`
 directory and run:
