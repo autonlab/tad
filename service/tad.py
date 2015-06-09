@@ -1,8 +1,9 @@
 from celery import Celery
 from flask import Flask
-from flask_restful import Resource, Api, reqparse
+from flask_restful import Resource, Api, reqparse, inputs
 from datetime import datetime
 from event_detector import EventDetector
+import argparse
 
 class ListServices(Resource):
     handle      = 'list'
@@ -80,7 +81,12 @@ class EventReportService(Resource):
                 type=int, default=0)
         parser.add_argument('tailed'                , required=False,
                 type=str, default='upper', choices=['lower', 'upper', 'two'])
-        parser.add_argument('data-source'           , required=False)
+        parser.add_argument('data-source'           , required=False,
+                type=str, default='elasticsearch')
+        parser.add_argument('stratify'              , required=False,
+                type=inputs.boolean, default=False)
+        parser.add_argument('cluster-field'         , required=False,
+                type=str, default='phone')
         args = parser.parse_args(strict = True)
 
         if args['lag'] < 0: return {'error': 'lag cannot be negative'}, 400
@@ -132,11 +138,13 @@ def worker( self, task ):
                 args['target-location'], args['keylist'],
                 pargs['analysis-start-date'], pargs['analysis-end-date'],
                 args['baseline-location'],
-                cur_window  = args['current-window'],
-                ref_window  = args['reference-window'],
-                lag         = args['lag'],
-                tailed      = args['tailed'],
-                data_source = 'flatfile') #args['data-source'])
+                cur_window      = args['current-window'],
+                ref_window      = args['reference-window'],
+                lag             = args['lag'],
+                tailed          = args['tailed'],
+                stratify        = args['stratify'],
+                cluster_field   = args['cluster-field'],
+                data_source     = args['data-source'])
     except Exception as e:
         return {
             'finished': True,
@@ -150,6 +158,12 @@ def worker( self, task ):
     return {'progress': 100, 'status': 'Finished', 'finished': True, 'result': result}
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Start temporal anomaly scan service.')
+    parser.add_argument('--debug', '-d', action='store_true')
+    args = parser.parse_args()
+    if args.debug:
+        print('Starting in DEBUG mode')
+
     tasks = {}
 
     services = [ListServices, EventReportService]
@@ -157,7 +171,7 @@ if __name__ == '__main__':
         api.add_resource(service, *service.uris)
 
     try:
-        app.run(debug = False)
+        app.run(debug = args.debug)
     except KeyboardInterrupt:
         pass
 

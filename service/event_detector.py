@@ -1,59 +1,45 @@
+#!/usr/bin/python
+
+import ConfigParser
 import datetime
-import calendar
 import operator
 from fisher import pvalue
-import pyhs2
-import re
+import elasticsearch as es
+from location_matches import location_matches
+from build_query_elasticsearch import build_query_elasticsearch
+
+class DictParser(ConfigParser.ConfigParser):
+    def as_dict(self):
+        d = dict(self._sections)
+        for k in d:
+            d[k] = dict(self._defaults, **d[k])
+            d[k].pop('__name__', None)
+        return d
 
 class EventDetector:
-    @staticmethod
-    def get_data_hive( start_date, end_date, locations = None ):
-        # If locations provided, verify contents and build query string.
-        location_query = ''
-        if locations != None:
-            if re.search('[^\w_,]', locations) != None: return []
-            locations = ','.join("'{0}'".format(l.strip()) for l in locations.split(',') if l.strip() != '')
-            if locations != '':
-                location_query = 'and location in ({0})'.format(locations)
-
-        # Find data.
-        data = []
-        try:
-            with pyhs2.connect( \
-                    host='localhost', port=10000, authMechanism='PLAIN',
-                    user='hive', password='hive', database='default') as con:
-                with con.cursor() as cur:
-                    start_ts    = calendar.timegm(
-                            datetime.datetime.combine(start_date, datetime.datetime.min.time()).timetuple())
-                    end_ts      = calendar.timegm(
-                            datetime.datetime.combine(end_date, datetime.datetime.min.time()).timetuple())
-                    fields      = 'location,state,date,age,size,cluster,keywords'
-                    table       = 'memex_ht_ads_clustered'
-                    query       = 'select %s from %s where timestamp >= %d and timestamp <= %d %s' \
-                            % (fields, table, start_ts, end_ts, location_query)
-                    print('Querying hive: %s' % query)
-                    cur.execute(query)
-                    data = cur.fetchall()
-        except Exception as e:
-            print('ERROR: Could not query hive.')
-            print(str(e))
-            return []
-
-        return data
+    cfg = None
 
     @staticmethod
-    def get_data_flatfile( start_date, end_date, locations = None ):
+    def get_data_flatfile(
+            start_date, end_date, locations = None,
+            keylist = [], stratify = False, cluster_field = None ):
+        intext_keylist = ['_'+x+'_' for x in keylist]
         data = []
         try:
             with open('snapshot/records.csv', 'r') as f:
+                if len(keylist) > 0: print(' - Will search for keywords...')
                 for row in f:
                     # From
                     #  0      1       2      3    4    5      6       7        8
                     # id  location  state  date  age  size  phone  cluster  content
                     #
                     # To
-                    #     0       1      2    3    4       5        6
-                    # location  state  date  age  size  cluster  content
+                    #    0     1      2
+                    # cluster date location
+                    #
+                    # Fake to:
+                    #    0     1   2  3  4 5
+                    # cluster date 1 loc 1 1
 
                     fields = row.split(',')
 
@@ -66,8 +52,27 @@ class EventDetector:
                     if (row_date < start_date) or (row_date > end_date):
                         continue
 
+                    # Check that the keyword exists.
+                    if len(keylist) > 0:
+                        keyword = False
+                        for j, x in enumerate(intext_keylist):
+                            content = fields[8]
+                            if x in content:
+                                keyword = True
+                                break
+                            if content[:len(x)-1] == x[1:]:
+                                keyword = True
+                                break
+                            if content[-len(x)+1:] == x[:-1]:
+                                keyword = True
+                                break
+                    else: keyword = True
+                    if not keyword: continue
+
                     # Add row.
-                    data.append(fields[1:6] + fields[7:])
+                    dt = datetime.datetime.strptime(fields[3], "%b/%d/%Y").date()
+                    cl = fields[7] if stratify else 1
+                    data.append([cl, dt, 1, fields[1], 1, 1])
 
         except Exception as e:
             print('ERROR: Could not query flatfile.')
@@ -77,78 +82,109 @@ class EventDetector:
         return data
 
     @staticmethod
-    def get_data( start_date, end_date, locations = None, data_source = 'flatfile' ):
+    def get_data_elasticsearch(
+            start_date, end_date, locations = None,
+            keylist = [], stratify = False, cluster_field = None ):
+        data = []
+        try:
+            query = build_query_elasticsearch(start_date, end_date, locations, keylist, cluster_field)
+            esi = es.Elasticsearch('https://{}:{}@{}:{}'.format(
+                EventDetector.cfg['ElasticSearch']['username'],
+                EventDetector.cfg['ElasticSearch']['password'],
+                EventDetector.cfg['ElasticSearch']['host'],
+                EventDetector.cfg['ElasticSearch']['port']))
+            if not esi.ping():
+                raise Exception('ERROR: Elasticsearch server did not respond to ping.')
+            results = esi.search(body=query, size=0)
+            print('Results to fetch: {}'.format(results['hits']['total']))
+            results = esi.search(body=query, size=results['hits']['total'])
+            unknown_id = 1
+            for result in results['hits']['hits']:
+                dt = datetime.datetime.strptime(result['_source']['posttime'], '%Y-%m-%dT%H:%M:%S').date()
+                if stratify:
+                    if cluster_field in result['_source']: cl = result['_source']
+                    else:
+                        cl = 'u{}'.format(unknown_id)
+                        unknown_id += 1
+                else: cl = 1
+                loc = '{};{};{}'.format(
+                        result['_source']['city'],
+                        result['_source']['state'],
+                        result['_source']['country'])
+                data.append([cl, dt, 1, loc, 1, 1])
+
+        except Exception as e:
+            print('ERROR: Could not query elasticsearch.')
+            print(str(e))
+            return []
+
+        return data
+
+    @staticmethod
+    def get_data(
+            start_date, end_date, locations = None,
+            keylist = [], stratify = False, cluster_field = None,
+            data_source = 'flatfile' ):
+
         get_data_f = None
-        if data_source == 'hive':
-            get_data_f = EventDetector.get_data_hive
+        if data_source == 'elasticsearch':
+            get_data_f = EventDetector.get_data_elasticsearch
         elif data_source == 'flatfile':
             get_data_f = EventDetector.get_data_flatfile
         else:
             raise Exception('Invalid data source: %s' % data_source)
 
-        return get_data_f(start_date, end_date, locations)
+        return get_data_f(start_date, end_date, locations, keylist, stratify, cluster_field)
+
+    @staticmethod
+    def load_configuration( filename ):
+        config = DictParser()
+        config.read(filename)
+        EventDetector.cfg = config.as_dict()
 
     @staticmethod
     def cheap_event_report( \
             target_location, keylist, analysis_date_start, analysis_date_end,
             baseline_location = '',
             startdate = None, enddate = None, cur_window = 7, ref_window = 91,
-            lag = 0, tailed = 'upper', US = False, Canada = False,
-            data_source = 'flatfile'):
+            lag = 0, tailed = 'upper', US = False, Canada = False, stratify = False,
+            cluster_field = None, data_source = 'flatfile'):
+
+        if EventDetector.cfg == None:
+            print('First run - loading configuration')
+            EventDetector.load_configuration('config/tad.cfg')
+
+        if stratify: print(' - Will stratify')
         if startdate is None:
             startdate = analysis_date_start - datetime.timedelta(days = cur_window + lag + ref_window - 1)
 
         if enddate is None:
             enddate = analysis_date_end
 
-        intext_keylist      = ['_'+x+'_' for x in keylist]
-
         query_locations = None
         if baseline_location != '':
             query_locations = '{0},{1}'.format(baseline_location, target_location)
 
         print('Querying for data...')
-        data = EventDetector.get_data(startdate, enddate, query_locations, data_source)
+        data = EventDetector.get_data(
+                startdate, enddate, query_locations, keylist,
+                stratify, cluster_field, data_source)
         if data == []:
             print('WARNING: No query results returned.')
             return []
         print('Found %d data elements.' % len(data))
 
-        print('Filtering data...')
-        adlist = []
-        adlistadd = adlist.append
+        adlist = data
 
         # Columns:
-        #  0     1     2     3    4       5        6
-        # loc, state, date, age, size, cluster, content
+        #    0      1     2
+        # location date cluster
 
-        for fields in data:
-            #look for keywords
-            keyword = 0
-            content = fields[6]
-            for j,x in enumerate(intext_keylist):
-                #check in text
-                if x in content:
-                    keyword = 1
-                    break
+        # Columns:
+        #    0     1     2      3    4    5
+        # cluster date keyword loc state age
 
-                #check at start of line
-                if content[:len(x)-1] == x[1:]:
-                    keyword = 1
-                    break
-
-                #check at end of line
-                if content[-len(x)+1:] == x[:-1]:
-                    keyword = 1
-                    break
-
-            # Convert date.
-            dt = datetime.datetime.strptime(fields[2], "%b/%d/%Y").date()
-
-            mycluster = fields[5]
-            adlistadd([mycluster, dt, keyword] + fields[0:2] + fields[3:4])
-
-        print('Sorting...')
+        print('Performing stratification...')
 
         #sort
         adlist.sort(key = operator.itemgetter(0,1))
@@ -200,45 +236,43 @@ class EventDetector:
 
             newlistappend([ntt] + row[1:])
 
-        print('Working...')
+        print('Generating counts and statistics...')
+
+        count_size = 8 if stratify else 2
 
         #new-to-town is in newlist, which is list of lists. Fields in everey list in newlist are
         #NewToTown,date,keyword,location,state,age
         countlist = []
         newlist.sort(key = operator.itemgetter(1)) # sort by date
         cur_date = datetime.date(1900,1,1)
-        counts = [0]*16
+        counts = [0]*count_size
+        baseline_seq = baseline_location.split(';')
+        target_seq   = target_location.split(';')
         for ad in newlist:
             if ad[1] > cur_date:
                 countlist.append([cur_date] + counts)
                 cur_date=ad[1]
-                counts = [0]*16
+                counts = [0]*count_size
 
-            if ad[3] in target_location:
+            if location_matches(ad[3], target_seq):
                 counts[0] += 1 #target overall
-                if ad[2]: counts[8] += 1
-                if ad[0] == 0: # local
-                    counts[2] += 1
-                    if ad[2]: counts[10] += 1
-                elif ad[0] == 1: # new-to-town
-                    counts[4] += 1
-                    if ad[2]: counts[12] += 1
-                elif ad[0] == 2: # first-appearance
-                    counts[6] += 1
-                    if ad[2]: counts[14] += 1
+                if stratify:
+                    if ad[0] == 0: # local
+                        counts[2] += 1
+                    elif ad[0] == 1: # new-to-town
+                        counts[4] += 1
+                    elif ad[0] == 2: # first-appearance
+                        counts[6] += 1
 
-            if (baseline_location == '') or (ad[3] in baseline_location):
+            if (baseline_location == '') or location_matches(ad[3], baseline_seq):
                 counts[1] += 1 #baseline overall
-                if ad[2]: counts[9] += 1
-                if ad[0]==0: # local
-                    counts[3] += 1
-                    if ad[2]: counts[11] += 1
-                elif ad[0] == 1: # new-to-town
-                    counts[5] += 1
-                    if ad[2]: counts[13]+=1
-                elif ad[0] == 2: # first-appearance
-                    counts[7] += 1
-                    if ad[2]: counts[15] += 1
+                if stratify:
+                    if ad[0]==0: # local
+                        counts[3] += 1
+                    elif ad[0] == 1: # new-to-town
+                        counts[5] += 1
+                    elif ad[0] == 2: # first-appearance
+                        counts[7] += 1
 
         countlist.append([cur_date] + counts)
         del newlist
@@ -257,8 +291,8 @@ class EventDetector:
             len(countlist),
             0
         ]
-        ref_counts = [0]*16
-        cur_counts = [0]*16
+        ref_counts = [0]*count_size
+        cur_counts = [0]*count_size
         while 1:
             if countlist[idx][0] >= cur_period[0] and countlist[idx][0] <= cur_period[1]:
                 cur_counts = map(operator.add, cur_counts, countlist[idx][1:])
@@ -282,20 +316,13 @@ class EventDetector:
                 tests = []
                 tests.append(pvalue(
                     ref_counts[0], ref_counts[1], cur_counts[0], cur_counts[1])) # overall
-                tests.append(pvalue(
-                    ref_counts[2], ref_counts[3], cur_counts[2], cur_counts[3])) # local
-                tests.append(pvalue(
-                    ref_counts[4], ref_counts[5], cur_counts[4], cur_counts[5])) # new2twn
-                tests.append(pvalue(
-                    ref_counts[6], ref_counts[7], cur_counts[6], cur_counts[7])) # first
-                tests.append(pvalue(
-                    ref_counts[8], ref_counts[9], cur_counts[8], cur_counts[9])) # overall+keyword
-                tests.append(pvalue(
-                    ref_counts[10], ref_counts[11], cur_counts[10], cur_counts[11])) #local+keyword
-                tests.append(pvalue(
-                    ref_counts[12], ref_counts[13], cur_counts[12], cur_counts[13])) #new2twn+keyword
-                tests.append(pvalue(
-                    ref_counts[14], ref_counts[15], cur_counts[14], cur_counts[15])) #first+keyword
+                if stratify:
+                    tests.append(pvalue(
+                        ref_counts[2], ref_counts[3], cur_counts[2], cur_counts[3])) # local
+                    tests.append(pvalue(
+                        ref_counts[4], ref_counts[5], cur_counts[4], cur_counts[5])) # new2twn
+                    tests.append(pvalue(
+                        ref_counts[6], ref_counts[7], cur_counts[6], cur_counts[7])) # first
 
                 if tailed == 'upper':
                     res = [cur_period[1]] + cur_counts + ref_counts + [t.right_tail for t in tests]
@@ -303,6 +330,7 @@ class EventDetector:
                     res=[cur_period[1]] + cur_counts + ref_counts + [t.left_tail for t in tests]
                 else:
                     res = [cur_period[1]] + cur_counts + ref_counts + [t.two_tail for t in tests]
+
                 ScanResults.append(res)
 
             cur_period[0]-=datetime.timedelta(days=1)
@@ -331,3 +359,20 @@ class EventDetector:
                 ref_period[3] -= 1
 
         return ScanResults
+
+if __name__ == '__main__':
+    result = EventDetector.cheap_event_report(
+        'Colorado Springs;Colorado;United States', None,
+        datetime.datetime.strptime('2014/01/05', '%Y/%m/%d').date(),
+        datetime.datetime.strptime('2014/02/05', '%Y/%m/%d').date(),
+        baseline_location = ';Colorado;United States',
+        cur_window      = 7,
+        ref_window      = 91,
+        lag             = 0,
+        tailed          = 'upper',
+        stratify        = True,
+        cluster_field   = 'phone',
+        data_source     = 'elasticsearch')
+
+    for r in result:
+        print(r)

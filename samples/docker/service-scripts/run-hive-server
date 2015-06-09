@@ -1,9 +1,0 @@
-#!/bin/bash
-
-sleep 5
-cd /service
-if [ -f "logs/hive-server.log" ]; then
-    echo "" &>> logs/hive-server.log
-fi
-echo `date` &>> logs/hive-server.log
-hiveserver2 &>> logs/hive-server.log

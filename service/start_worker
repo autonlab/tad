@@ -1,0 +1,3 @@
+#!/bin/bash
+
+celery -A tad.celery worker -l info

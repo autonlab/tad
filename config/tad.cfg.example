@@ -1,0 +1,5 @@
+[ElasticSearch]
+host=my.elasticsearch.com
+username=me
+password=TOPSECRET
+port=12345
