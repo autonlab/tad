@@ -22,7 +22,7 @@ else
     fi
 
     if [[ $# -gt 1 ]]; then
-        mounts="-v `readlink -f $1`:/service/tad/logs -v `readlink -f $2`:/service/tad/config:ro"
+        mounts="-v `readlink -f $1`:/service/tad/logs -v `readlink -f $2`:/service/tad/config:ro -v `readlink -f $2`:/service/tad/snapshot:ro"
     fi
 
     docker run -ti --rm --name "autonlab-tad" $mounts $entrypoint -P autonlab/tad

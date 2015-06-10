@@ -1,7 +1,7 @@
 Temporal Anomaly Detector (TAD)
 ===============================
 
-Version 1.1  
+Version 1.2 
 Kyle Miller - mille856@cmu.edu  
 Anthony Wertz - awertz@cmu.edu  
 Carnegie Mellon University - Auton Lab
@@ -22,12 +22,9 @@ The service has two main components that can be built. First, there is the servi
 itself which can run stand-alone. Second, a docker image can be built (and there
 is a ready-made image on Dockerhub) to contain the service and all required services.
 
-To build the Python `pip` package requred for the service, move to the `service`
-directory and run:
-
-```
-python setup.py sdist
-```
+There is nothing to build for the python service. Just use the `start_worker` and
+`start_service` scripts. These scripts assume Celery is installed and a RabbitMQ
+server is running with default guest:guest credentials.
 
 To build the docker container, move to the `samples/docker` directory and run
 the `./build-docker` script. Alternatively, you can pull the already built image
@@ -36,25 +33,22 @@ from dockerhub with `docker pull autonlab/tad`.
 Starting the Python service directly
 ------------------------------------
 
-The python service will attempt to connect to the SRL server on the local host
-(127.0.0.1) on port 12345. There are no script inputs, so if you want to change
-these settings you'll need to modify the `tad.py` script.
+The python service will attempt to connect to Celery and RabbitMQ on localhost. In
+addition, the script also needs a configuration in order to access elastic search.
+For elastic search, you can create a configuration file: see config/tad.cfg.example.
+The file should be named tad.cfg and should be available in the "config" directory
+relative to the working directory. For other settings, there are no script inputs,
+so if you want to change these settings you'll need to modify the `tad.py` script.
 
-The script will need the `srl` and `srl_event_detector` packages available which
-can be installed with `pip install` globally or (preferably) in a virtual environment.
-In addition, `numpy`, `fisher`, and `pyhs2` are also required, all of which can
-also be installed via `pip`.
+The script requires some python packages: `numpy`, `fisher`, `flask`, `flask_restful`,
+`celery` are required, all of which can also be installed via `pip`.
 
 Running the service is achieved simply by
 
 ```
-python tad.py
+./start_worker &
+./start_service
 ```
-
-Note: For using flat files the data is assumed to exists in `snapshot/records.csv`
-relative to the working directory. For Hive queries, it is assumed the server
-is running on `localhost:10000` and the table `memex_ht_ads_clustered` is
-available and properly formatted.
 
 Starting the service using the Docker image
 -------------------------------------------
@@ -62,15 +56,14 @@ Starting the service using the Docker image
 By either building the docker image or by pulling it from dockerhub, you can
 load everything pre-configured by simply running the container. The easiest
 way to do this is using the script `samples/docker/run-docker`. In general
-it should be provided with a log output directory and a flatfile data directory
-(even if you're not using flatfiles; the directories must be specified together)
+it should be provided with a log output directory and a configuration directory
 like this:
 
 ```
-./run-docker my/log/dir my/data/dir
+./run-docker my/log/dir my/config/dir
 ```
 
-After running this, the TCP communication port will not be 12345 on the host
+After running this, the RESTful communication port will not be 5000 on the host
 machine (that is the local port in the docker image but not the port on the
 docker host). To find the docker port run something like
 
@@ -89,64 +82,28 @@ to grab the port number to use.
 Using the service: Python client example
 ----------------------------------------
 
-In `samples/client` there is a simple Python client implemented which, with
-little or no error checking, will blaze through the process of connecting to
-the SRL server, querying the TAD service, displaying the results, and
-shutting down the server. This can be used as a general example of how a
-query is performed (note, however, you shouldn't shutdown the service after
-a query, unless you really don't want it running and providing query support
-anymore).
+In `samples/client` there is a simple curl client implemented which, with
+little or no error checking, will send a request and continuously monitor
+the results until killed.
 
-Using the service: Python package
----------------------------------
+Using the service: REST API
+---------------------------
 
-In conjunction with the SRL Python package `srl`, this library contains a
-convinience package `srl_event_detector` used for querying anomaly event
-reports from the service. The general approach to a query is
+The general approach to a query is
 
 1. Send a request. A status message will be returned indicating that the
    request has been queued. Once a worker process is available it will
-   handle the request.
+   handle the request. The task ID will be returned. This is a POST
+   request to server:port/event-report
 2. Periodically ping for a status update using the task ID provided in
    the reponse from step one. Either a status update will be returned or
-   the results if finished.
+   the results if finished. This is a GET request to server:port/event-report/task-id
 3. If the results of that task are required again at some point in time,
    just query for the progress of the same task ID.
 
-Anomaly detection event reports are queried using the `CheapEventReportRequestFactory`
-class. Progress updates and results are queried using the `TaskProgressMessageFactory`
-class. Accessing fields in the class is done using normal array access
-operations, e.g. `message['keylist']` for the keyword list.
+### POST event-report message
 
-Using the service: Other languages and Message structure
---------------------------------------------------------
-
-For querying the service in other programming languages, the procedure
-is pretty simple. A TCP connection with the server needs to be established
-and then you can just start sending messages. All messages are in simple
-JSON format with message contents wrapped in a protocol header that looks
-like this:
-
-```json
-{
-   "protocol-version"   : 1000,
-   "module"             : "<module name>",
-   "service"            : "<service name>",
-   "client-id"          : -1,
-   "body"               : { }
-}
-```
-
-This includes the protocol version being used, the module hosting the
-service to be performed, the service requested, and the body of the message
-(for clients `client-id` can be ignored).
-
-The following are the relevant messages for the TAD service. For all messages,
-the module name must be `CMU-TemporalAnomalyDetector`.
-
-### CheapEventReport message
-
-This message must be sent in order to receive an event report. An event
+This message must be sent in order to create an event report. An event
 report query is performed to compare ad volume over a specific period
 of time with past ad volume, comparing two different regions. In other
 words, the report will indicate whether ad volume of the target location
@@ -165,25 +122,31 @@ baseline    | #         | #
 The service field of the header must indicate `CheapEventReport`. The body
 contains the following fields.
 
-Field               | Values            | Explanation
+Field               | Values (default)  | Explanation
 --------------------|-------------------|------------
 target-location     | string            | Target location(s)
 baseline-location   | string            | Baseline location(s)
 keylist             | string array      | Search keywords
-analysis-start-date | date string       | Start date of analysis period in format %b/%d/%Y
+analysis-start-date | date string       | Start date of analysis period in format %Y/%m/%d
 analysis-end-date   | date string       | End date of analysis period
-current-window      | int > 0           | Size (in days) of current window
-reference-window    | int > 0           | Size (in days) of reference window
-lag                 | int >= 0          | Lag (in days) of reference window  behind current window
+current-window      | int > 0 (7)       | Size (in days) of current window
+reference-window    | int > 0 (91)      | Size (in days) of reference window
+lag                 | int >= 0 (0)      | Lag (in days) of reference window  behind current window
 tailed              | upper, lower, two | Tail for Fisher exact test
-data-source         | hive, flatfile    | Source of data to use
+                    |    (upper)        |
+data-source         | elasticsearch,    | Source of data to use
+                    |   flatfile (es)   |
+stratify            | bool (false)      | Whether or not to stratify events.
+cluster-field       | string (phone)    | The database field on which to cluster (not used for flatfiles)
 
 The target and baseline locations indicate the locations, separated by
-commas, to be used for the target and baseline comparisons. Keylist
-(which can be empty) is a set of keywords you wish to search for.
+commas, to be used for the target and baseline comparisons. For elastic search,
+the locations should include city, state, and country separated by semicolons.
+Keylist (which can be empty) is a set of keywords you wish to search for.
+A result will be returned so long as it includes at least one of the keywords.
 Analysis start and end date represent the period of time your interested
-in analysing and are represented using the `strptime` format of `%b/%d/%Y`,
-so for example "Mar/14/2015". 
+in analysing and are represented using the `strptime` format of `%Y/%m/%d`,
+so for example "2015/05/14". 
 
 The window sizes represent the windows to aggregate counts in for the
 current time period and the reference period. For example, you may compare
@@ -192,7 +155,7 @@ previous three months (reference-window = 90). Use the lag parameter if you
 want to create more separation between the windows. For example, maybe you
 want to compare it to the same time last year. You could set the current
 and reference windows to be the same size and the lag to be `365 - current-window`
-days long.a
+days long.
 
 Tailed determines what kind of p-value test to perform with the test. Given
 the table configuration, a lower tail test will yield significant p-values
@@ -202,16 +165,20 @@ test will yield significant p-values when the ad volume in the current time
 period in the target location seems to decrease. Two-tailed test will detect
 both of these changes.
 
-The data source allows selection of the hive server or a flatfile to be used.
+The data source allows selection of the elastic search or a flatfile to be used.
 
-### Progress message
+The `stratify` field determines whether or not the results will be stratified
+(described later). The `cluster-field` indicates the elastic search field
+on which entities are clustered.
 
-This message will allow querying for progress on the task. The service field
-must indicate `Progress`. The body contains just one important field:
+### GET event-report message
+
+This message will allow querying for progress on the task. The body contains
+just one important field:
 
 Field   | Values | Explanation
 --------|--------|------------
-task-id | int    | ID number of the task
+task-id | string | ID number of the task
 
 The task ID is returned in the response when an event report is requested.
 The reponse to this message will include the status of the current task or,
@@ -227,35 +194,27 @@ time period. Each record is a multi-type array containing the following fields
 First is the date.
 
 The second is a block of counts for the current time window in the target
-and baseline when not considering keywords specified. In this block, the
-first column and every second column after that represent the counts in
-the target window. The second column and every second column after that
-represent the counts in the reference window. There are four such pairs
-representing the four ad stratifications: overall, local, new to town, and
-first post. Therefore, this block has eight fields ordered as follows:
+and baseline. In this block, the first column and every second column after
+that represent the counts in the target window. The second column and every
+second column after that represent the counts in the reference window.
+There are four such pairs representing the four ad stratifications: overall,
+local, new to town, and first post. (**NOTE** If stratification is disabled,
+there is only one pair: overall). Therefore, this block has eight fields
+ordered as follows:
 
 ```
 target (overall), reference (overall), target (local), reference (local), ...
 ```
 
-And, again, these represent counts in the current time window, not taking
-into account keywords.
+There is another block structured identically, representing the counts
+in the reference period.
 
-The next block is exactly the same as the last, except it shows counts in
-the current time window for ads including the specified keywords. (If you
-don't specify keywords these will all be zeros.) The same stratification
-as above exists.
-
-There are two more blocks structured identically, representing the counts
-in the reference period without and with keywords.
-
-Finally, there are two blocks of four p-values each. The first four are
-for the counts without keywords, the last four with. In each block they
-are ordered by the same stratification as above: overall, local, new to
-town, and first. So that looks like this:
+Finally, there is a block of four p-values. They are ordered by the same
+stratification as above: overall, local, new to town, and first. (Or only
+overall in the case stratification is disabled.) So that looks like this:
 
 ```
-p-value (no keywords; overall), p-value (no keywords; local), ...
+p-value (overall), p-value (local), ...
 ```
 
 Configuring input: flatfiles
@@ -282,17 +241,23 @@ Index   | Name      | Description
 7       | Cluster   | The cluster ID of the ad
 8       | Content   | The add keywords
 
-Configuring input: Hive
------------------------
+Using the docker container, the snapshot directory is the second argument
+to the `run_docker` script provided in the `samples` directory. That directory
+is mapped (read-only) to `snapshot`.
 
-For configuring hive on your system, refer to hive documentation. The only
-requirement is that the table `memex_ht_ads_clustered` exists which has the same
-fields as the CSV file mentioned in the previous section.
+Configuring input: Elastic Search
+---------------------------------
 
-For configuring hive on the docker image, modify the files inside the directory
-`samples/docker/guest-cfg/memex` which make the configurations when the container
-is started. Again, for specifics on configuring the hive server, see official
-Hive documentation.
+For configuring elastic search on your system, refer to online documentation. The
+elastic search documents should contain fields `city`, `state`, `country`, and
+`posttime`. The connection information needs to be in a file `config/tad.cfg`
+relative to the working directory from which you start the service. There is an
+example of a configuration file in the repository which just needs some basic
+host information and credentials.
+
+For configuring elastic search on the docker image, you just need to supply the
+configuration directory which is the second parameter of the `run_docker` script
+which is mounted to `config`.
 
 License
 -------
