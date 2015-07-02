@@ -2,7 +2,10 @@
 
 import datetime as dt
 
-def es_query_generator( start, end, filters, keylist = None ):
+def es_query_generator( start, end, filters, keylist = None, time_field = None ):
+    if not isinstance(time_field, str):
+        raise Exception('time_field must be a string!')
+
     # Build query for keylist, if any.
     kl_query = None
     if keylist == None: keylist = ''
@@ -20,7 +23,7 @@ def es_query_generator( start, end, filters, keylist = None ):
     # Build query for date range.
     range_query = \
     {
-        'posttime': {
+        time_field: {
             'gte': start.strftime('%Y-%m-%d'),
             'lt' : end.strftime('%Y-%m-%d')
         }

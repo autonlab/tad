@@ -37,8 +37,10 @@ class EventDetector:
             ts_target   = np.empty(n)
             i           = 0
             for (qb, qt) in izip(
-                    es_query_generator(start, end, baseline_filters, keylist),
-                    es_query_generator(start, end, target_filters  , keylist)):
+                    es_query_generator(start, end, baseline_filters, keylist,
+                        EventDetector.cfg['ElasticSearch']['time_field']),
+                    es_query_generator(start, end, target_filters  , keylist,
+                        EventDetector.cfg['ElasticSearch']['time_field'])):
                 rb = esi.count(index = index, body = qb)
                 rt = esi.count(index = index, body = qt)
                 ts_baseline[i] = int(rb['count'])
