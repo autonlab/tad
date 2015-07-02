@@ -1,7 +1,7 @@
 Temporal Anomaly Detector (TAD)
 ===============================
 
-Version 1.2 
+Version 1.2  
 Kyle Miller - mille856@cmu.edu  
 Anthony Wertz - awertz@cmu.edu  
 Carnegie Mellon University - Auton Lab
