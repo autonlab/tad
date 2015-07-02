@@ -106,12 +106,12 @@ The general approach to a query is
 This message must be sent in order to create an event report. An event
 report query is performed to compare ad volume over a specific period
 of time with past ad volume, comparing two different regions. In other
-words, the report will indicate whether ad volume of the target location
-relative to the baseline location in the past is significantly different
-than ad volume of the target location to the baseline location in the
+words, the report will indicate whether ad volume of the target definition
+relative to the baseline definition in the past is significantly different
+than ad volume of the target definition to the baseline definition in the
 period of interest. This is done using the Fisher exact test for
 independence using the ad volumes in the reference and current time
-periods for the target and baseline locations. The contingency table
+periods for the target and baseline definitions. The contingency table
 looks like this:
 
             | reference | current
@@ -119,29 +119,22 @@ looks like this:
 target      | #         | #
 baseline    | #         | #
 
-The service field of the header must indicate `CheapEventReport`. The body
-contains the following fields.
+The body contains the following fields:
 
 Field               | Values (default)  | Explanation
 --------------------|-------------------|------------
-target-location     | string            | Target location(s)
-baseline-location   | string            | Baseline location(s)
+target-filters      | assoc array       | Target filter(s) (key-value pairs like {"city": "Buffalo", "state": "New York"})
+baseline-filters    | assoc array       | Baseline filter(s)
 keylist             | string array      | Search keywords
 analysis-start-date | date string       | Start date of analysis period in format %Y/%m/%d
 analysis-end-date   | date string       | End date of analysis period
 current-window      | int > 0 (7)       | Size (in days) of current window
 reference-window    | int > 0 (91)      | Size (in days) of reference window
 lag                 | int >= 0 (0)      | Lag (in days) of reference window  behind current window
-tailed              | upper, lower, two | Tail for Fisher exact test
-                    |    (upper)        |
-data-source         | elasticsearch,    | Source of data to use
-                    |   flatfile (es)   |
-stratify            | bool (false)      | Whether or not to stratify events.
-cluster-field       | string (phone)    | The database field on which to cluster (not used for flatfiles)
 
-The target and baseline locations indicate the locations, separated by
-commas, to be used for the target and baseline comparisons. For elastic search,
-the locations should include city, state, and country separated by semicolons.
+The target and baseline indicate the constraints to be used for defining
+the target and baseline comparisons. The filters can include any fields from
+the elastic search database in proper JSON format. They matches are exact.
 Keylist (which can be empty) is a set of keywords you wish to search for.
 A result will be returned so long as it includes at least one of the keywords.
 Analysis start and end date represent the period of time your interested
@@ -156,20 +149,6 @@ want to create more separation between the windows. For example, maybe you
 want to compare it to the same time last year. You could set the current
 and reference windows to be the same size and the lag to be `365 - current-window`
 days long.
-
-Tailed determines what kind of p-value test to perform with the test. Given
-the table configuration, a lower tail test will yield significant p-values
-when there appears to be an increase in ad volume in the current time period
-of interest in the target location relative to the baseline. An upper tailed
-test will yield significant p-values when the ad volume in the current time
-period in the target location seems to decrease. Two-tailed test will detect
-both of these changes.
-
-The data source allows selection of the elastic search or a flatfile to be used.
-
-The `stratify` field determines whether or not the results will be stratified
-(described later). The `cluster-field` indicates the elastic search field
-on which entities are clustered.
 
 ### GET event-report message
 
@@ -191,66 +170,24 @@ When a query is run, a record is returned for each day within the analysis
 time period. Each record is a multi-type array containing the following fields
 (in order, accessed by index).
 
-First is the date.
+First is the date. Next is the reference period counts for the baseline, then
+for the target, followed by the current period counts for the baseline, then
+for the target. After that there are three p-values from the Fisher test: the
+left tail, two tail, and right tail p-values. A lower tail test will yield
+significant p-values when there appears to be an decrease in volume in the
+current time period of interest in the target relative to the baseline. An upper
+tailed test will yield significant p-values when the ad volume in the current time
+period in the target seems to increase. Two-tailed test will detect both of these
+changes but does not yield as significant p-values.
 
-The second is a block of counts for the current time window in the target
-and baseline. In this block, the first column and every second column after
-that represent the counts in the target window. The second column and every
-second column after that represent the counts in the reference window.
-There are four such pairs representing the four ad stratifications: overall,
-local, new to town, and first post. (**NOTE** If stratification is disabled,
-there is only one pair: overall). Therefore, this block has eight fields
-ordered as follows:
-
-```
-target (overall), reference (overall), target (local), reference (local), ...
-```
-
-There is another block structured identically, representing the counts
-in the reference period.
-
-Finally, there is a block of four p-values. They are ordered by the same
-stratification as above: overall, local, new to town, and first. (Or only
-overall in the case stratification is disabled.) So that looks like this:
-
-```
-p-value (overall), p-value (local), ...
-```
-
-Configuring input: flatfiles
-----------------------------
-
-A CSV text file may be used to provide a data source from which to query.
-It must be named `records.csv` and reside in a `snapshot` directory relative
-to the starting point of the TAD service. If launching the Python script
-directly, the directory should be in your calling directory. If using the
-docker container, the data directory must be sent while configuring the
-service.
-
-The CSV file contains nine columns of data:
-
-Index   | Name      | Description
-:------:|-----------|------------
-0       | ID        | The record's ID number
-1       | Location  | String representing the location of the ad (e.g. Colorado Springs)
-2       | State     | String representing the U.S. state of the ad (e.g. Colorado)
-3       | Date      | The date represented in %b/%d/%Y format, e.g. Mar/14/2015
-4       | Age       | The age of the victim or UNSPECIFIED
-5       | Size      | The size of the victim or UNSPECIFIED
-6       | Phone     | The victim's phone number or a unique placeholder (e.g. p-ID#)
-7       | Cluster   | The cluster ID of the ad
-8       | Content   | The add keywords
-
-Using the docker container, the snapshot directory is the second argument
-to the `run_docker` script provided in the `samples` directory. That directory
-is mapped (read-only) to `snapshot`.
 
 Configuring input: Elastic Search
 ---------------------------------
 
 For configuring elastic search on your system, refer to online documentation. The
-elastic search documents should contain fields `city`, `state`, `country`, and
-`posttime`. The connection information needs to be in a file `config/tad.cfg`
+elastic search documents should contain the time field specified in the configuration
+along with any other fields used to filter the documents for baseline and target
+definitions. The configuration information needs to be in a file `config/tad.cfg`
 relative to the working directory from which you start the service. There is an
 example of a configuration file in the repository which just needs some basic
 host information and credentials.
