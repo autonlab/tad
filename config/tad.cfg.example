@@ -1,5 +1,8 @@
 [ElasticSearch]
-host=my.elasticsearch.com
-username=me
-password=TOPSECRET
-port=12345
+host        = my.elasticsearch.com
+username    = me
+password    = TOPSECRET
+port        = 12345
+
+default_index = my_index
+time_field  = my_time_field

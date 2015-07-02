@@ -131,6 +131,7 @@ analysis-end-date   | date string       | End date of analysis period
 current-window      | int > 0 (7)       | Size (in days) of current window
 reference-window    | int > 0 (91)      | Size (in days) of reference window
 lag                 | int >= 0 (0)      | Lag (in days) of reference window  behind current window
+index               | string            | The elastic search index to target.
 
 The target and baseline indicate the constraints to be used for defining
 the target and baseline comparisons. The filters can include any fields from
@@ -149,6 +150,9 @@ want to create more separation between the windows. For example, maybe you
 want to compare it to the same time last year. You could set the current
 and reference windows to be the same size and the lag to be `365 - current-window`
 days long.
+
+The index can be sent if something other than the default index specified
+in the configuration should be used.
 
 ### GET event-report message
 

@@ -18,7 +18,7 @@ RUN pip install flask flask_restful
 #------------- Pull software --------------#
 RUN mkdir -p /service/build
 WORKDIR /service/build
-RUN lsb_release
+RUN lsb_release -v
 RUN git clone https://github.com/autonlab/tad.git
 
 # Build and install TAD library.
