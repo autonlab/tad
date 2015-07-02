@@ -1,6 +1,6 @@
 from celery import Celery
 from flask import Flask
-from flask_restful import Resource, Api, reqparse, inputs
+from flask_restful import Resource, Api, reqparse
 from datetime import datetime
 from event_detector import EventDetector
 import argparse
@@ -66,9 +66,10 @@ class EventReportService(Resource):
 
         # Parse query request.
         parser = reqparse.RequestParser(bundle_errors = True)
-        parser.add_argument('target-location'       , required=True)
-        parser.add_argument('baseline-location'     , required=False,
-                default='')
+        parser.add_argument('target-filters'        , required=True,
+                type=dict)
+        parser.add_argument('baseline-filters'      , required=True,
+                type=dict)
         parser.add_argument('keylist'               , required=False,
                 type=str, default=[], action='append')
         parser.add_argument('analysis-start-date'   , required=True)
@@ -79,14 +80,8 @@ class EventReportService(Resource):
                 type=int, default=91)
         parser.add_argument('lag'                   , required=False,
                 type=int, default=0)
-        parser.add_argument('tailed'                , required=False,
-                type=str, default='upper', choices=['lower', 'upper', 'two'])
-        parser.add_argument('data-source'           , required=False,
-                type=str, default='elasticsearch')
-        parser.add_argument('stratify'              , required=False,
-                type=inputs.boolean, default=False)
-        parser.add_argument('cluster-field'         , required=False,
-                type=str, default='phone')
+        parser.add_argument('index'                 , required=False,
+                type=str, default=None)
         args = parser.parse_args(strict = True)
 
         if args['lag'] < 0: return {'error': 'lag cannot be negative'}, 400
@@ -131,21 +126,22 @@ api = Api(app)
 @celery.task(bind=True)
 def worker( self, task ):
     self.update_state(state='PROGRESS', meta={'status': 'In progress'})
+    result = []
     try:
         args  = task['args']
         pargs = task['pargs']
-        result = EventDetector.cheap_event_report(
-                args['target-location'], args['keylist'],
-                pargs['analysis-start-date'], pargs['analysis-end-date'],
-                args['baseline-location'],
-                cur_window      = args['current-window'],
-                ref_window      = args['reference-window'],
-                lag             = args['lag'],
-                tailed          = args['tailed'],
-                stratify        = args['stratify'],
-                cluster_field   = args['cluster-field'],
-                data_source     = args['data-source'])
+        result = EventDetector.temporal_scan(
+                baseline_filters = args['baseline-filters'],
+                target_filters   = args['target-filters'],
+                analysis_start   = pargs['analysis-start-date'],
+                analysis_end     = pargs['analysis-end-date'],
+                keylist          = args['keylist'],
+                cur_window       = args['current-window'],
+                ref_window       = args['reference-window'],
+                lag              = args['lag'],
+                index            = args['index'])
     except Exception as e:
+        raise
         return {
             'finished': True,
             'status': 'Failed',
