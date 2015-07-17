@@ -90,10 +90,12 @@ class EventReportService(Resource):
 
         pargs = {}
 
-        try: pargs['analysis-start-date'] = datetime.strptime(args['analysis-start-date'], '%Y/%m/%d').date()
+        #try: pargs['analysis-start-date'] = datetime.strptime(args['analysis-start-date'], '%Y/%m/%d').date()
+        try: pargs['analysis-start-date'] = datetime.strptime(args['analysis-start-date'], '%Y-%m-%d').date()
         except: return {'error': 'analysis-start-date is invalid: {}'.format(args['analysis-start-date'])}, 400
 
-        try: pargs['analysis-end-date'] = datetime.strptime(args['analysis-end-date'], '%Y/%m/%d').date()
+        #try: pargs['analysis-end-date'] = datetime.strptime(args['analysis-end-date'], '%Y/%m/%d').date()
+        try: pargs['analysis-end-date'] = datetime.strptime(args['analysis-end-date'], '%Y-%m-%d').date()
         except: return {'error': 'analysis-end-date is invalid: {}'.format(args['analysis-end-date'])}, 400
 
         if pargs['analysis-start-date'] >= pargs['analysis-end-date']:
