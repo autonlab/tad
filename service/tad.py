@@ -141,7 +141,6 @@ def worker( self, task ):
                 lag              = args['lag'],
                 index            = args['index'])
     except Exception as e:
-        raise
         return {
             'finished': True,
             'status': 'Failed',

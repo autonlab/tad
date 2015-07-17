@@ -17,18 +17,26 @@ class DictParser(ConfigParser.ConfigParser):
             d[k].pop('__name__', None)
         return d
 
+def get_or( obj, field, default ):
+    return obj[field] if field in obj else default
+
 class EventDetector:
     cfg = None
 
     @staticmethod
     def get_counts( start, end, baseline_filters, target_filters, keylist = None, index = None ):
-        if index == None: index = EventDetector.cfg['ElasticSearch']['default_index']
+        esconfig = EventDetector.cfg['ElasticSearch']
+        if index == None: index = get_or(esconfig, 'default_index', '')
         try:
-            esi = es.Elasticsearch('https://{}:{}@{}:{}'.format(
-                EventDetector.cfg['ElasticSearch']['username'],
-                EventDetector.cfg['ElasticSearch']['password'],
-                EventDetector.cfg['ElasticSearch']['host'],
-                EventDetector.cfg['ElasticSearch']['port']))
+            protocol    = get_or(esconfig, 'protocol', 'https')
+            usernm      = get_or(esconfig, 'username', '')
+            passwd      = get_or(esconfig, 'password', '')
+            if len(passwd) > 0: passwd = ':' + passwd + '@'
+            elif len(usernm) > 0: usernm = usernm + '@'
+            host        = get_or(esconfig, 'host', 'localhost')
+            port        = get_or(esconfig, 'port', '9200')
+            esi = es.Elasticsearch('{}://{}{}{}:{}'.format(
+                protocol, usernm, passwd, host, port))
             if not esi.ping():
                 raise Exception('ERROR: Elasticsearch server did not respond to ping.')
 
@@ -36,11 +44,11 @@ class EventDetector:
             ts_baseline = np.empty(n)
             ts_target   = np.empty(n)
             i           = 0
+
+            time_field  = EventDetector.cfg['ElasticSearch']['time_field']
             for (qb, qt) in izip(
-                    es_query_generator(start, end, baseline_filters, keylist,
-                        EventDetector.cfg['ElasticSearch']['time_field']),
-                    es_query_generator(start, end, target_filters  , keylist,
-                        EventDetector.cfg['ElasticSearch']['time_field'])):
+                    es_query_generator(start, end, baseline_filters, keylist, time_field),
+                    es_query_generator(start, end, target_filters  , keylist, time_field)):
                 rb = esi.count(index = index, body = qb)
                 rt = esi.count(index = index, body = qt)
                 ts_baseline[i] = int(rb['count'])
