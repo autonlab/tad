@@ -25,5 +25,5 @@ else
         mounts="-v `readlink -f $1`:/service/tad/logs -v `readlink -f $2`:/service/tad/config:ro -v `readlink -f $2`:/service/tad/snapshot:ro"
     fi
 
-    docker run -ti --rm --name "autonlab-tad" $mounts $entrypoint -P autonlab/tad
+    docker run -p 5000:5000 -ti --rm --name "autonlab-tad" $mounts $entrypoint -P autonlab/tad
 fi

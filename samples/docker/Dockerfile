@@ -4,7 +4,7 @@
 # utilization of cached steps.
 #
 # Note: As of 2015/03/05 this is Ubuntu 14.04.
-FROM dockerfile/java:oracle-java7
+FROM java:7
 MAINTAINER Anthony Wertz <awertz@cmu.edu>
 
 #------------ Install development software --------------#
@@ -18,7 +18,7 @@ RUN pip install flask flask_restful
 #------------- Pull software --------------#
 RUN mkdir -p /service/build
 WORKDIR /service/build
-RUN lsb_release -v
+RUN ls
 RUN git clone https://github.com/autonlab/tad.git
 
 # Build and install TAD library.
