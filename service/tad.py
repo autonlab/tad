@@ -74,6 +74,8 @@ class EventReportService(Resource):
                 type=str, default=[], action='append')
         parser.add_argument('analysis-start-date'   , required=True)
         parser.add_argument('analysis-end-date'     , required=True)
+        parser.add_argument('constant-baseline'     , required=False,
+                type=bool, default=False)
         parser.add_argument('current-window'        , required=False,
                 type=int, default=7)
         parser.add_argument('reference-window'      , required=False,
@@ -141,6 +143,7 @@ def worker( self, task ):
                 cur_window       = args['current-window'],
                 ref_window       = args['reference-window'],
                 lag              = args['lag'],
+                constant_baseline= args['constant-baseline'],
                 index            = args['index'])
     except Exception as e:
         return {

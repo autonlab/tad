@@ -8,6 +8,7 @@ import os
 import elasticsearch as es
 from es_query_generator import es_query_generator
 from itertools import izip
+import json
 
 class DictParser(ConfigParser.ConfigParser):
     def as_dict(self):
@@ -24,7 +25,8 @@ class EventDetector:
     cfg = None
 
     @staticmethod
-    def get_counts( start, end, baseline_filters, target_filters, keylist = None, index = None ):
+    def get_counts( start, end, baseline_filters, target_filters,
+            keylist = None, index = None, constant_baseline = False ):
         esconfig = EventDetector.cfg['ElasticSearch']
         if index == None: index = get_or(esconfig, 'default_index', '')
         try:
@@ -49,8 +51,10 @@ class EventDetector:
             for (qb, qt) in izip(
                     es_query_generator(start, end, baseline_filters, keylist, time_field),
                     es_query_generator(start, end, target_filters  , keylist, time_field)):
-                rb = esi.count(index = index, body = qb)
+                rb = esi.count(index = index, body = qb) if not constant_baseline else {'count': 1}
                 rt = esi.count(index = index, body = qt)
+                with open('/home/awertz/tmp/poo.txt', 'w+') as f:
+                    f.write(json.dumps(qt, indent=2) + '\n\n')
                 ts_baseline[i] = int(rb['count'])
                 ts_target[i]   = int(rt['count'])
                 i += 1
@@ -75,7 +79,7 @@ class EventDetector:
     @staticmethod
     def temporal_scan( \
             baseline_filters, target_filters, analysis_start, analysis_end,
-            keylist = None, cur_window = 7, ref_window = 91, lag = 0,
+            keylist = None, cur_window = 7, ref_window = 91, lag = 0, constant_baseline = False,
             index = None):
         start = None
         end   = None
@@ -91,7 +95,9 @@ class EventDetector:
             end = analysis_end
 
         print('Querying for counts...')
-        counts = EventDetector.get_counts(start, end, baseline_filters, target_filters, keylist, index)
+        counts = EventDetector.get_counts(
+                start, end, baseline_filters, target_filters,
+                keylist, index, constant_baseline)
         if isinstance(counts, str):
             raise Exception(counts)
         elif len(counts) == 0:

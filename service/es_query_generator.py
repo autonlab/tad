@@ -45,7 +45,6 @@ def es_query_generator( start, end, filters, keylist = None, time_field = None )
     # Return a query for each day.
     this_day = start
     next_day = start
-    print(final_query)
     while True:
         next_day += dt.timedelta(days = 1)
         if this_day > end: break
