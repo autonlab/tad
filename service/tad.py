@@ -84,6 +84,8 @@ class EventReportService(Resource):
                 type=int, default=0)
         parser.add_argument('index'                 , required=False,
                 type=str, default=None)
+        parser.add_argument('time_field'            , required=False,
+                type=str, default=None)
         args = parser.parse_args(strict = True)
 
         if args['lag'] < 0: return {'error': 'lag cannot be negative'}, 400
@@ -144,7 +146,8 @@ def worker( self, task ):
                 ref_window       = args['reference-window'],
                 lag              = args['lag'],
                 constant_baseline= args['constant-baseline'],
-                index            = args['index'])
+                index            = args['index'],
+                time_field       = args['time_field'])
     except Exception as e:
         return {
             'finished': True,

@@ -26,9 +26,10 @@ class EventDetector:
 
     @staticmethod
     def get_counts( start, end, baseline_filters, target_filters,
-            keylist = None, index = None, constant_baseline = False ):
+            keylist = None, index = None, time_field = None, constant_baseline = False ):
         esconfig = EventDetector.cfg['ElasticSearch']
         if index == None: index = get_or(esconfig, 'default_index', '')
+        if time_field == None: time_field = get_or(esconfig, 'time_field', 'date')
         try:
             protocol    = get_or(esconfig, 'protocol', 'https')
             usernm      = get_or(esconfig, 'username', '')
@@ -47,14 +48,11 @@ class EventDetector:
             ts_target   = np.empty(n)
             i           = 0
 
-            time_field  = EventDetector.cfg['ElasticSearch']['time_field']
             for (qb, qt) in izip(
                     es_query_generator(start, end, baseline_filters, keylist, time_field),
                     es_query_generator(start, end, target_filters  , keylist, time_field)):
                 rb = esi.count(index = index, body = qb) if not constant_baseline else {'count': 1}
                 rt = esi.count(index = index, body = qt)
-                with open('/home/awertz/tmp/poo.txt', 'w+') as f:
-                    f.write(json.dumps(qt, indent=2) + '\n\n')
                 ts_baseline[i] = int(rb['count'])
                 ts_target[i]   = int(rt['count'])
                 i += 1
@@ -80,7 +78,7 @@ class EventDetector:
     def temporal_scan( \
             baseline_filters, target_filters, analysis_start, analysis_end,
             keylist = None, cur_window = 7, ref_window = 91, lag = 0, constant_baseline = False,
-            index = None):
+            index = None, time_field = None):
         start = None
         end   = None
 
@@ -97,7 +95,7 @@ class EventDetector:
         print('Querying for counts...')
         counts = EventDetector.get_counts(
                 start, end, baseline_filters, target_filters,
-                keylist, index, constant_baseline)
+                keylist, index, time_field, constant_baseline)
         if isinstance(counts, str):
             raise Exception(counts)
         elif len(counts) == 0:
