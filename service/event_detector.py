@@ -46,16 +46,18 @@ class EventDetector:
             n           = (end - start).days + 1
             ts_baseline = np.empty(n)
             ts_target   = np.empty(n)
-            i           = 0
 
-            for (qb, qt) in izip(
-                    es_query_generator(start, end, baseline_filters, keylist, time_field),
-                    es_query_generator(start, end, target_filters  , keylist, time_field)):
-                rb = esi.count(index = index, body = qb) if not constant_baseline else {'count': 1}
-                rt = esi.count(index = index, body = qt)
-                ts_baseline[i] = int(rb['count'])
-                ts_target[i]   = int(rt['count'])
-                i += 1
+            if constant_baseline: ts_baseline.fill(1)
+            else:
+                qb = es_query_generator(start, end, baseline_filters, keylist, time_field)
+                rb = esi.search(index = index, body = qb)
+                for idx, val in enumerate(rb['aggregations']['counts']['buckets']):
+                    ts_baseline[idx] = int(val['doc_count'])
+
+            qt = es_query_generator(start, end, target_filters  , keylist, time_field)
+            rt = esi.search(index = index, body = qt)
+            for idx, val in enumerate(rt['aggregations']['counts']['buckets']):
+                ts_target[idx] = int(val['doc_count'])
 
             return {'baseline': ts_baseline, 'target': ts_target}
 
@@ -83,7 +85,6 @@ class EventDetector:
         end   = None
 
         if EventDetector.cfg == None:
-            print('First run - loading configuration "config/tad.cfg"...')
             EventDetector.load_configuration('config/tad.cfg')
 
         if start is None:
@@ -92,7 +93,6 @@ class EventDetector:
         if end is None:
             end = analysis_end
 
-        print('Querying for counts...')
         counts = EventDetector.get_counts(
                 start, end, baseline_filters, target_filters,
                 keylist, index, time_field, constant_baseline)
@@ -101,7 +101,6 @@ class EventDetector:
         elif len(counts) == 0:
             raise Exception('ERROR: No results returned. Valid analysis range specified?')
 
-        print('Computing reference and baseline window counts...')
         kernel_ref      = np.ones(ref_window)
         kernel_cur      = np.ones(cur_window)
 
@@ -112,7 +111,6 @@ class EventDetector:
         baseline_cur    = np.correlate(counts['baseline'], kernel_cur)[-n_days:]
         target_cur      = np.correlate(counts['target']  , kernel_cur)[-n_days:]
 
-        print('Computing scores...')
         on_date = analysis_start
         results = []
         for si in xrange(n_days):
@@ -127,13 +125,15 @@ class EventDetector:
 
 if __name__ == '__main__':
     result = EventDetector.temporal_scan(
-        baseline_filters = {'state': 'Colorado'},
-        target_filters   = {'state': 'Colorado', 'city': 'Colorado Springs'},
-        analysis_start   = dt.datetime.strptime('2014/01/05', '%Y/%m/%d').date(),
-        analysis_end     = dt.datetime.strptime('2014/02/05', '%Y/%m/%d').date(),
-        cur_window       = 7,
-        ref_window       = 91,
-        lag              = 0)
+        baseline_filters = {},
+        target_filters   = {'Location': 'MINOT_NORTH_DAKOTA'},
+        analysis_start   = dt.datetime.strptime('2013-07-25', '%Y-%m-%d').date(),
+        analysis_end     = dt.datetime.strptime('2013-07-27', '%Y-%m-%d').date(),
+        cur_window       = 1,
+        ref_window       = 1,
+        lag              = 0,
+        index            = 'trafficking',
+        time_field       = 'Date')
 
     for r in result:
         print(r)

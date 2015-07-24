@@ -26,7 +26,7 @@ def es_query_generator( start, end, filters, keylist = None, time_field = None )
         'range': {
             time_field: {
                 'gte': start.strftime('%Y-%m-%d'),
-                'lt' : end.strftime('%Y-%m-%d')
+                'lte' : end.strftime('%Y-%m-%d')
             }
         }
     }
@@ -36,30 +36,33 @@ def es_query_generator( start, end, filters, keylist = None, time_field = None )
     for key in filters:
         l_queries.append({'match': {key: filters[key]}})
 
+    # Define aggregation.
+    aggs = { 'counts': { 'date_histogram': {
+        'field': time_field,
+        'interval': 'day',
+        'min_doc_count': 0,
+        'extended_bounds': {
+            'min': start.strftime('%Y-%m-%d'),
+            'max': end.strftime('%Y-%m-%d')
+        }
+    }}}
+
     # Now put it all together.
     final_query = \
     {
-        'query': { 'bool': { 'must': [kl_query, range_query] + l_queries } }
+        'size': 0,
+        'query': { 'bool': { 'must': [kl_query, range_query] + l_queries } },
+        'aggs': aggs
     }
 
-    # Return a query for each day.
-    this_day = start
-    next_day = start
-    while True:
-        next_day += dt.timedelta(days = 1)
-        if this_day > end: break
-        final_query['query']['bool']['must'][1]['range'][time_field]['gte'] = \
-                this_day.strftime('%Y-%m-%d')
-        final_query['query']['bool']['must'][1]['range'][time_field]['lt'] = \
-                next_day.strftime('%Y-%m-%d')
-        yield final_query
-        this_day += dt.timedelta(days = 1)
+    # Return a single query with aggregation.
+    return final_query
 
 if __name__ == '__main__':
     import json
 
-    for q in es_query_generator(
-            dt.datetime.strptime('07/15/2015', '%m/%d/%Y'),
-            dt.datetime.strptime('07/17/2015', '%m/%d/%Y'),
-            {'stock': 'ACOL'}, time_field='dt'):
-        print(json.dumps(q, indent=2, separators=(',', ': ')))
+    q = es_query_generator(
+            dt.datetime.strptime('2012-07-28', '%Y-%m-%d'),
+            dt.datetime.strptime('2015-07-24', '%Y-%m-%d'),
+            {'Location': 'MINOT_NORTH_DAKOTA'}, time_field='Date')
+    print(json.dumps(q, indent=4, separators=(',', ': ')))
