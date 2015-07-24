@@ -84,7 +84,7 @@ class EventReportService(Resource):
                 type=int, default=0)
         parser.add_argument('index'                 , required=False,
                 type=str, default=None)
-        parser.add_argument('time_field'            , required=False,
+        parser.add_argument('time-field'            , required=False,
                 type=str, default=None)
         args = parser.parse_args(strict = True)
 
@@ -94,11 +94,9 @@ class EventReportService(Resource):
 
         pargs = {}
 
-        #try: pargs['analysis-start-date'] = datetime.strptime(args['analysis-start-date'], '%Y/%m/%d').date()
         try: pargs['analysis-start-date'] = datetime.strptime(args['analysis-start-date'], '%Y-%m-%d').date()
         except: return {'error': 'analysis-start-date is invalid: {}'.format(args['analysis-start-date'])}, 400
 
-        #try: pargs['analysis-end-date'] = datetime.strptime(args['analysis-end-date'], '%Y/%m/%d').date()
         try: pargs['analysis-end-date'] = datetime.strptime(args['analysis-end-date'], '%Y-%m-%d').date()
         except: return {'error': 'analysis-end-date is invalid: {}'.format(args['analysis-end-date'])}, 400
 
@@ -147,7 +145,7 @@ def worker( self, task ):
                 lag              = args['lag'],
                 constant_baseline= args['constant-baseline'],
                 index            = args['index'],
-                time_field       = args['time_field'])
+                time_field       = args['time-field'])
     except Exception as e:
         return {
             'finished': True,
