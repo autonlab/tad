@@ -1,4 +1,5 @@
 [ElasticSearch]
+protocol    = https
 host        = my.elasticsearch.com
 username    = me
 password    = TOPSECRET

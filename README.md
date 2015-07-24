@@ -1,7 +1,7 @@
 Temporal Anomaly Detector (TAD)
 ===============================
 
-Version 1.2  
+Version 1.1  
 Kyle Miller - mille856@cmu.edu  
 Anthony Wertz - awertz@cmu.edu  
 Carnegie Mellon University - Auton Lab
@@ -131,7 +131,9 @@ analysis-end-date   | date string       | End date of analysis period
 current-window      | int > 0 (7)       | Size (in days) of current window
 reference-window    | int > 0 (91)      | Size (in days) of reference window
 lag                 | int >= 0 (0)      | Lag (in days) of reference window  behind current window
+constant-baseline   | bool              | Whether the baseline should be constant valued or not.
 index               | string            | The elastic search index to target.
+time-field          | string            | The field representing the date and time.
 
 The target and baseline indicate the constraints to be used for defining
 the target and baseline comparisons. The filters can include any fields from
@@ -139,8 +141,8 @@ the elastic search database in proper JSON format. They matches are exact.
 Keylist (which can be empty) is a set of keywords you wish to search for.
 A result will be returned so long as it includes at least one of the keywords.
 Analysis start and end date represent the period of time your interested
-in analysing and are represented using the `strptime` format of `%Y/%m/%d`,
-so for example "2015/05/14". 
+in analysing and are represented using the `strptime` format of `%Y-%m-%d`,
+so for example "2015-05-14". 
 
 The window sizes represent the windows to aggregate counts in for the
 current time period and the reference period. For example, you may compare
@@ -149,10 +151,14 @@ previous three months (reference-window = 90). Use the lag parameter if you
 want to create more separation between the windows. For example, maybe you
 want to compare it to the same time last year. You could set the current
 and reference windows to be the same size and the lag to be `365 - current-window`
-days long.
+days long. The constant baseline, if selected, will force the service to ignore
+the baseline filters and use a constant count value (one each day) to compare
+against the target.
 
 The index can be sent if something other than the default index specified
-in the configuration should be used.
+in the configuration should be used. Similarly, time-field specifies the
+field that represents the date and (optionally) time to aggregate on. Time
+is less important as TAD currently only aggregates daily.
 
 ### GET event-report message
 
