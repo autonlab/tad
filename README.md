@@ -13,7 +13,14 @@ Description
 -----------
 
 This is a service developed for the DARPA MEMEX program that performs temporal
-anomaly detection on advertisments.
+anomaly detection on advertisments. The algorithm looks at ad volume over a specified
+time range for a given target query compared with a baseline query, making the assumption
+that the ratio of target to baseline ad volume will be consistent across time. Fisher's
+exact test is used to test this assumption, providing a time series of `p-values` indicating
+when the assumption breaks down. This metric (or, more commonly, `-log(p-value)`)
+is used to detect anomalies. This algorithm is useful in identifying interesting changes
+that might be indicative of increases or decreases in supply or demand over an event
+of interest.
 
 Building
 --------
@@ -22,13 +29,24 @@ The service has two main components that can be built. First, there is the servi
 itself which can run stand-alone. Second, a docker image can be built (and there
 is a ready-made image on Dockerhub) to contain the service and all required services.
 
-There is nothing to build for the python service. Just use the `start_worker` and
-`start_service` scripts. These scripts assume Celery is installed and a RabbitMQ
-server is running with default guest:guest credentials.
+There is nothing to build for the python service. From a `bash` shell on Linux or macOS
+the `start_worker` and `start_service` scripts can be used to start the worker and REST
+client, or on any OS the commands can be run directly from the terminal (see the next
+section). These scripts assume Celery is installed and a RabbitMQ server is running with
+default guest:guest credentials.
 
 To build the docker container, move to the `samples/docker` directory and run
 the `./build-docker` script. Alternatively, you can pull the already built image
 from dockerhub with `docker pull autonlab/tad`.
+
+Elastic Search
+--------------
+
+Note that whether the service is run via the python scripts directly or through the
+docker image an elastic search database is required. Instructions on configuring TAD
+to find your elastic search database will come later in this document, but if there
+is no elastic search database configured you must install and configure the service
+first. Instructions can be found on [their website](https://www.elastic.co/).
 
 Starting the Python service directly
 ------------------------------------
@@ -41,14 +59,36 @@ relative to the working directory. For other settings, there are no script input
 so if you want to change these settings you'll need to modify the `tad.py` script.
 
 The script requires some python packages: `numpy`, `fisher`, `flask`, `flask_restful`,
-`celery` are required, all of which can also be installed via `pip`.
-
-Running the service is achieved simply by
+`celery`, `elasticsearch` are required, all of which can also be installed via `pip`,
+either individually or with the `requirements.txt` file:
 
 ```
-./start_worker &
-./start_service
+pip install -r requirements.txt
 ```
+
+This will install Celery (which you can learn more about [here](http://www.celeryproject.org/))
+but to use the service you'll also need `RabbitMQ`. Instructions on installing and
+configuring that service can be found [on their website](http://www.celeryproject.org/).
+
+To run the service, a celery worker can be spawned from within the `service` directory:
+
+```
+celery -A tad.celery worker -l info
+```
+
+and the TAD REST client can be started:
+
+```
+python tad.py
+```
+
+These commands are in the `service/start_worker` and `service/start_service`
+`bash` scripts, respectively. You can run those if you're using a `bash` terminal, e.g. on
+macOS or Linux.
+
+After started, either service can be killed using `Ctrl+C` in the shell used to start
+the service. The process can also be found and killed through a process monitor like
+`top` and `htop`.
 
 Starting the service using the Docker image
 -------------------------------------------

@@ -1,0 +1,6 @@
+numpy
+fisher
+flask
+flask_restful
+celery
+elasticsearch
